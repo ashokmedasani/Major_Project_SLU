@@ -8,14 +8,8 @@ __pycache__/
 # Django database
 db.sqlite3
 
-# Environment variables
-.env
-
 # Dataset folder
 Data/
 
-# VS Code / Cursor
-.vscode/
-
-# Mac
-.DS_Store
+# Environment
+.env
