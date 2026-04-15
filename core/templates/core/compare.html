@@ -1,0 +1,1061 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .compare-page {
+        width: 100%;
+        padding: 24px 18px 40px;
+        box-sizing: border-box;
+        background: #f5f8fc;
+    }
+
+    .compare-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .compare-title-wrap h1 {
+        margin: 0;
+        font-size: 32px;
+        color: #15314b;
+        font-weight: 800;
+    }
+
+    .compare-title-wrap p {
+        margin: 6px 0 0;
+        color: #557089;
+        font-size: 14px;
+    }
+
+    .action-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .btn-main,
+    .btn-outline,
+    .btn-danger {
+        border: none;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: 0.2s ease;
+    }
+
+    .btn-main {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .btn-main:hover {
+        background: #0b5ed7;
+    }
+
+    .btn-outline {
+        background: white;
+        color: #0d6efd;
+        border: 1px solid #b8d4ff;
+    }
+
+    .btn-outline:hover {
+        background: #eef5ff;
+    }
+
+    .btn-danger {
+        background: #ffe5e8;
+        color: #c62839;
+        border: 1px solid #f5b7bf;
+    }
+
+    .btn-danger:hover {
+        background: #ffd7dd;
+    }
+
+    .selected-strip {
+        background: white;
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 8px 26px rgba(19, 49, 75, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .strip-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #173652;
+        margin-bottom: 12px;
+    }
+
+    .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .hospital-chip {
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #eef5ff;
+        color: #0e4ea8;
+        border: 1px solid #cfe2ff;
+        font-weight: 700;
+        cursor: pointer;
+        user-select: none;
+        transition: 0.2s ease;
+    }
+
+    .hospital-chip:hover {
+        background: #dfeeff;
+        transform: translateY(-1px);
+    }
+
+    .hospital-chip small {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #5f7f9e;
+        margin-top: 2px;
+    }
+
+    .filter-note {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #607d97;
+    }
+
+    .payer-badge {
+        display: inline-block;
+        margin-left: 8px;
+        background: #ecf7ee;
+        color: #1f7a39;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 8px 24px rgba(20, 48, 75, 0.07);
+        border-top: 5px solid #cfe2ff;
+    }
+
+    .kpi-card.best {
+        border-top-color: #1e9c53;
+    }
+
+    .kpi-card .hospital-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #173652;
+        margin-bottom: 12px;
+    }
+
+    .metric-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .metric-box {
+        background: #f8fbff;
+        border: 1px solid #e0edf8;
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    .metric-label {
+        font-size: 12px;
+        color: #6d879e;
+        margin-bottom: 5px;
+        font-weight: 700;
+    }
+
+    .metric-value {
+        font-size: 18px;
+        color: #15314b;
+        font-weight: 800;
+    }
+
+    .tag-row {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tag {
+        background: #e8f6ec;
+        color: #1f7a39;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .view-btn-wrap {
+        margin-top: 14px;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(20, 48, 75, 0.07);
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .section-title {
+        margin: 0 0 14px;
+        font-size: 20px;
+        color: #173652;
+        font-weight: 800;
+    }
+
+    .chart-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .chart-box {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(20, 48, 75, 0.07);
+        padding: 18px;
+    }
+
+    .chart-box h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #173652;
+        font-weight: 800;
+    }
+
+    .chart-full {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(20, 48, 75, 0.07);
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .chart-full h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #173652;
+        font-weight: 800;
+    }
+
+    .chart-filter-bar {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:14px;
+        flex-wrap:wrap;
+        margin-bottom:14px;
+    }
+
+    .chart-filter-controls {
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        align-items:center;
+    }
+
+    .filter-group label {
+        font-size:13px;
+        font-weight:700;
+        color:#5e7694;
+        display:block;
+        margin-bottom:4px;
+    }
+
+    .filter-group select {
+        height:40px;
+        border-radius:10px;
+        border:1px solid #d4e2f8;
+        padding:0 12px;
+        background:#fff;
+    }
+
+    .compare-table-wrap {
+        overflow-x: auto;
+    }
+
+    .compare-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .compare-table th,
+    .compare-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e7eef6;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    .compare-table th:first-child,
+    .compare-table td:first-child {
+        text-align: left;
+        font-weight: 800;
+        color: #173652;
+    }
+
+    .compare-table th {
+        background: #eef5ff;
+        color: #174c8e;
+        font-weight: 800;
+    }
+
+    .best-cell {
+        background: #e9f7ee;
+        color: #1f7a39;
+        font-weight: 800;
+    }
+
+    .low-cell {
+        background: #fff3e8;
+        color: #c26b15;
+        font-weight: 800;
+    }
+
+    .legend-note {
+        margin-top: 10px;
+        color: #68829a;
+        font-size: 13px;
+    }
+
+    .page-bottom-actions {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    @media (max-width: 1200px) {
+        .kpi-grid {
+            grid-template-columns: repeat(2, minmax(220px, 1fr));
+        }
+    }
+
+    @media (max-width: 900px) {
+        .chart-grid-2 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .kpi-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .compare-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="compare-page">
+    <div class="compare-header">
+        <div class="compare-title-wrap">
+            <h1>Hospital Comparison Dashboard</h1>
+            <p>
+                Compare hospitals side-by-side using visits, cost, insurance coverage, out-of-pocket, trends, and service patterns.
+                {% if payer_name %}
+                    <span class="payer-badge">Insurance Filter: {{ payer_name }}</span>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="action-bar">
+            <a href="{% url 'recommendations' %}" class="btn-outline">Back to Recommendations</a>
+            <a href="{% url 'compare_hospitals' %}" class="btn-danger">Reset Comparison</a>
+        </div>
+    </div>
+
+    <div class="selected-strip">
+        <div class="strip-title">Selected Hospitals</div>
+
+        <form id="compareTopForm" method="get" action="{% url 'compare_hospitals' %}">
+            {% if payer_name %}
+                <input type="hidden" name="payer_name" value="{{ payer_name }}">
+            {% endif %}
+
+            <div class="chip-row" id="selectedHospitalChipRow">
+                {% for card in summary_cards %}
+                    <div class="hospital-chip"
+                         data-hospital-id="{{ card.hospital_id }}"
+                         title="Ctrl/Cmd + Click to remove this hospital from comparison">
+                        {{ card.name }}
+                        <small>Ctrl/Cmd + Click to remove</small>
+                    </div>
+                    <input type="hidden" name="hospital_ids" value="{{ card.hospital_id }}" class="hidden-hospital-input">
+                {% endfor %}
+            </div>
+        </form>
+
+        <div class="filter-note">
+            Only <strong>Insurance Payer</strong> filter is applied here. Old filters like Age, Gender, State, and City are not applied on this page.
+        </div>
+    </div>
+
+    <div class="section-card">
+        <h2 class="section-title">Quick Comparison Table</h2>
+
+        <div class="compare-table-wrap">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        {% for card in summary_cards %}
+                            <th>{{ card.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Total Visits</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Most Visited' in card.tags %}best-cell{% endif %}">{{ card.total_visits }}</td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Unique Patients</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'More Patients' in card.tags %}best-cell{% endif %}">{{ card.unique_patients }}</td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Average Total Cost</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Lowest Avg Cost' in card.tags %}best-cell{% endif %}">
+                                ${{ card.avg_cost|floatformat:2 }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Average Coverage</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Best Avg Coverage' in card.tags %}best-cell{% endif %}">
+                                ${{ card.avg_coverage|floatformat:2 }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Average Out-of-Pocket</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Lowest Out-of-Pocket' in card.tags %}best-cell{% endif %}">
+                                ${{ card.avg_oop|floatformat:2 }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Coverage %</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Best Coverage %' in card.tags %}best-cell{% endif %}">
+                                {{ card.coverage_ratio|floatformat:2 }}%
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <td>Balanced Score</td>
+                        {% for card in summary_cards %}
+                            <td class="{% if 'Balanced Best Option' in card.tags %}best-cell{% endif %}">
+                                {{ card.score|floatformat:2 }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="legend-note">
+            Green cells indicate the strongest hospital for that comparison metric.
+        </div>
+    </div>
+
+    <div class="kpi-grid">
+        {% for card in summary_cards %}
+            <div class="kpi-card {% if 'Balanced Best Option' in card.tags %}best{% endif %}">
+                <div class="hospital-name">{{ card.name }}</div>
+
+                <div class="metric-grid">
+                    <div class="metric-box">
+                        <div class="metric-label">Total Visits</div>
+                        <div class="metric-value">{{ card.total_visits }}</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <div class="metric-label">Unique Patients</div>
+                        <div class="metric-value">{{ card.unique_patients }}</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <div class="metric-label">Avg Cost</div>
+                        <div class="metric-value">${{ card.avg_cost|floatformat:0 }}</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <div class="metric-label">Avg Coverage</div>
+                        <div class="metric-value">${{ card.avg_coverage|floatformat:0 }}</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <div class="metric-label">Avg Out-of-Pocket</div>
+                        <div class="metric-value">${{ card.avg_oop|floatformat:0 }}</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <div class="metric-label">Coverage %</div>
+                        <div class="metric-value">{{ card.coverage_ratio|floatformat:1 }}%</div>
+                    </div>
+                </div>
+
+                {% if card.tags %}
+                    <div class="tag-row">
+                        {% for tag in card.tags %}
+                            <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="view-btn-wrap">
+                    <a href="{{ card.detail_url }}" class="btn-main">View Hospital Details</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="chart-full">
+        <h3>Visits Comparison</h3>
+        <canvas id="visitsChart"></canvas>
+    </div>
+
+    <div class="chart-full">
+        <h3>Coverage vs Out-of-Pocket Comparison</h3>
+        <canvas id="financialSplitChart"></canvas>
+    </div>
+
+    <div class="chart-grid-2">
+        <div class="chart-box">
+            <h3>Unique Patients Comparison</h3>
+            <canvas id="patientsChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h3>Average Total Cost Comparison</h3>
+            <canvas id="avgCostChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-grid-2">
+        <div class="chart-box">
+            <h3>Coverage Percentage Comparison</h3>
+            <canvas id="ratioChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h3>Balanced Hospital Score</h3>
+            <canvas id="scoreChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-full">
+        <div class="chart-filter-bar">
+            <h3 style="margin:0;">Hospital Visit Trend</h3>
+
+            <div class="chart-filter-controls">
+                <div class="filter-group">
+                    <label for="trendViewType">View Type</label>
+                    <select id="trendViewType">
+                        <option value="yearly" selected>Yearly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="trendYearFilter">Year</label>
+                    <select id="trendYearFilter">
+                        <option value="all" selected>All Years</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="trendMonthFilter">Month</label>
+                    <select id="trendMonthFilter">
+                        <option value="all" selected>All Months</option>
+                        <option value="01">Jan</option>
+                        <option value="02">Feb</option>
+                        <option value="03">Mar</option>
+                        <option value="04">Apr</option>
+                        <option value="05">May</option>
+                        <option value="06">Jun</option>
+                        <option value="07">Jul</option>
+                        <option value="08">Aug</option>
+                        <option value="09">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="monthlyVisitsChart"></canvas>
+    </div>
+
+    <div class="chart-full">
+        <div class="chart-filter-bar">
+            <h3 style="margin:0;">Hospital Average Cost Trend</h3>
+
+            <div class="chart-filter-controls">
+                <div class="filter-group">
+                    <label for="costTrendViewType">View Type</label>
+                    <select id="costTrendViewType">
+                        <option value="yearly" selected>Yearly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="costTrendYearFilter">Year</label>
+                    <select id="costTrendYearFilter">
+                        <option value="all" selected>All Years</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="costTrendMonthFilter">Month</label>
+                    <select id="costTrendMonthFilter">
+                        <option value="all" selected>All Months</option>
+                        <option value="01">Jan</option>
+                        <option value="02">Feb</option>
+                        <option value="03">Mar</option>
+                        <option value="04">Apr</option>
+                        <option value="05">May</option>
+                        <option value="06">Jun</option>
+                        <option value="07">Jul</option>
+                        <option value="08">Aug</option>
+                        <option value="09">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="monthlyCostChart"></canvas>
+    </div>
+
+    <div class="page-bottom-actions">
+        <a href="{% url 'recommendations' %}" class="btn-outline">Choose Other Hospitals</a>
+        <a href="{% url 'compare_hospitals' %}" class="btn-danger">Reset Comparison</a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const visitsData = JSON.parse('{{ visits_chart_json|escapejs }}');
+    const patientsData = JSON.parse('{{ patients_chart_json|escapejs }}');
+    const financialSplitData = JSON.parse('{{ financial_split_chart_json|escapejs }}');
+    const avgCostData = JSON.parse('{{ avg_cost_chart_json|escapejs }}');
+    const ratioData = JSON.parse('{{ ratio_chart_json|escapejs }}');
+    const scoreData = JSON.parse('{{ score_chart_json|escapejs }}');
+    const monthlyVisitsData = JSON.parse('{{ monthly_visits_chart_json|escapejs }}');
+    const monthlyCostData = JSON.parse('{{ monthly_cost_chart_json|escapejs }}');
+    const encounterClassData = JSON.parse('{{ encounter_class_chart_json|escapejs }}');
+    const ageGroupData = JSON.parse('{{ age_group_chart_json|escapejs }}');
+
+    function defaultOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        };
+    }
+
+    new Chart(document.getElementById('visitsChart'), {
+        type: 'bar',
+        data: {
+            labels: visitsData.labels,
+            datasets: [{
+                label: 'Total Visits',
+                data: visitsData.values,
+                backgroundColor: [
+                    '#2a6fdb', '#5b8def', '#86b0ff', '#acc9ff'
+                ]
+            }]
+        },
+        options: defaultOptions()
+    });
+
+    new Chart(document.getElementById('patientsChart'), {
+        type: 'bar',
+        data: {
+            labels: patientsData.labels,
+            datasets: [{
+                label: 'Unique Patients',
+                data: patientsData.values,
+                backgroundColor: [
+                    '#4b83e8', '#73a2f2', '#9dc0fb', '#bfd6ff'
+                ]
+            }]
+        },
+        options: defaultOptions()
+    });
+
+    new Chart(document.getElementById('financialSplitChart'), {
+        type: 'bar',
+        data: {
+            labels: financialSplitData.labels,
+            datasets: [
+                {
+                    label: 'Avg Coverage',
+                    data: financialSplitData.coverage,
+                    backgroundColor: '#39a96b'
+                },
+                {
+                    label: 'Avg Out-of-Pocket',
+                    data: financialSplitData.oop,
+                    backgroundColor: '#d96c6c'
+                }
+            ]
+        },
+        options: {
+            ...defaultOptions(),
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('avgCostChart'), {
+        type: 'bar',
+        data: {
+            labels: avgCostData.labels,
+            datasets: [{
+                label: 'Average Total Cost',
+                data: avgCostData.values,
+                backgroundColor: [
+                    '#2f74c8', '#588ddb', '#86aef0', '#aac9ff'
+                ]
+            }]
+        },
+        options: defaultOptions()
+    });
+
+    new Chart(document.getElementById('ratioChart'), {
+        type: 'bar',
+        data: {
+            labels: ratioData.labels,
+            datasets: [{
+                label: 'Coverage %',
+                data: ratioData.values,
+                backgroundColor: [
+                    '#34a853', '#60bf79', '#8dd79f', '#b7ebc0'
+                ]
+            }]
+        },
+        options: defaultOptions()
+    });
+
+    new Chart(document.getElementById('scoreChart'), {
+        type: 'radar',
+        data: {
+            labels: scoreData.labels,
+            datasets: [{
+                label: 'Balanced Score',
+                data: scoreData.values,
+                fill: true,
+                backgroundColor: 'rgba(54, 116, 217, 0.18)',
+                borderColor: '#3674d9',
+                pointBackgroundColor: '#3674d9'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+
+    const trendColors = ['#2a6fdb', '#39a96b', '#d96c6c', '#a26bd9'];
+
+    function extractYearsFromLabels(labels) {
+        const years = new Set();
+        labels.forEach(label => {
+            if (label && label.includes('-')) {
+                years.add(label.split('-')[0]);
+            }
+        });
+        return Array.from(years).sort();
+    }
+
+    function populateYearFilter(selectElement, labels) {
+        const years = extractYearsFromLabels(labels);
+        years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            selectElement.appendChild(option);
+        });
+    }
+
+    function buildTrendData(sourceData, mode, selectedYear = 'all', selectedMonth = 'all') {
+        if (mode === 'monthly') {
+            let filteredIndexes = [];
+
+            sourceData.labels.forEach((label, index) => {
+                const parts = label.split('-');
+                const year = parts[0];
+                const month = parts[1];
+
+                const yearMatch = (selectedYear === 'all' || year === selectedYear);
+                const monthMatch = (selectedMonth === 'all' || month === selectedMonth);
+
+                if (yearMatch && monthMatch) {
+                    filteredIndexes.push(index);
+                }
+            });
+
+            return {
+                labels: filteredIndexes.map(i => sourceData.labels[i]),
+                datasets: sourceData.datasets.map((dataset, index) => ({
+                    label: dataset.label,
+                    data: filteredIndexes.map(i => dataset.data[i]),
+                    borderColor: trendColors[index % 4],
+                    backgroundColor: trendColors[index % 4],
+                    tension: 0.3,
+                    fill: false
+                }))
+            };
+        }
+
+        const grouped = {};
+        const allYears = extractYearsFromLabels(sourceData.labels);
+
+        allYears.forEach(year => {
+            grouped[year] = sourceData.datasets.map(() => 0);
+            grouped[year]._counts = sourceData.datasets.map(() => 0);
+        });
+
+        sourceData.labels.forEach((label, labelIndex) => {
+            const parts = label.split('-');
+            const year = parts[0];
+            const month = parts[1];
+
+            const yearMatch = (selectedYear === 'all' || year === selectedYear);
+            const monthMatch = (selectedMonth === 'all' || month === selectedMonth);
+
+            if (yearMatch && monthMatch) {
+                sourceData.datasets.forEach((dataset, dsIndex) => {
+                    const value = Number(dataset.data[labelIndex] || 0);
+                    grouped[year][dsIndex] += value;
+                    grouped[year]._counts[dsIndex] += 1;
+                });
+            }
+        });
+
+        const labels = Object.keys(grouped).filter(year => {
+            if (selectedYear !== 'all') {
+                return year === selectedYear;
+            }
+            return true;
+        });
+
+        const isCostChart = sourceData === monthlyCostData;
+
+        return {
+            labels: labels,
+            datasets: sourceData.datasets.map((dataset, dsIndex) => ({
+                label: dataset.label,
+                data: labels.map(year => {
+                    if (isCostChart) {
+                        const total = grouped[year][dsIndex];
+                        const count = grouped[year]._counts[dsIndex];
+                        return count > 0 ? (total / count) : 0;
+                    }
+                    return grouped[year][dsIndex];
+                }),
+                borderColor: trendColors[dsIndex % 4],
+                backgroundColor: trendColors[dsIndex % 4],
+                tension: 0.3,
+                fill: false
+            }))
+        };
+    }
+
+    const trendViewType = document.getElementById('trendViewType');
+    const trendYearFilter = document.getElementById('trendYearFilter');
+    const trendMonthFilter = document.getElementById('trendMonthFilter');
+
+    let visitsTrendChart = null;
+
+    function renderVisitsTrendChart() {
+        const chartData = buildTrendData(
+            monthlyVisitsData,
+            trendViewType.value,
+            trendYearFilter.value,
+            trendMonthFilter.value
+        );
+
+        if (visitsTrendChart) {
+            visitsTrendChart.destroy();
+        }
+
+        visitsTrendChart = new Chart(document.getElementById('monthlyVisitsChart'), {
+            type: 'line',
+            data: chartData,
+            options: {
+                ...defaultOptions(),
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+    }
+
+    const costTrendViewType = document.getElementById('costTrendViewType');
+    const costTrendYearFilter = document.getElementById('costTrendYearFilter');
+    const costTrendMonthFilter = document.getElementById('costTrendMonthFilter');
+
+    let costTrendChart = null;
+
+    function renderCostTrendChart() {
+        const chartData = buildTrendData(
+            monthlyCostData,
+            costTrendViewType.value,
+            costTrendYearFilter.value,
+            costTrendMonthFilter.value
+        );
+
+        if (costTrendChart) {
+            costTrendChart.destroy();
+        }
+
+        costTrendChart = new Chart(document.getElementById('monthlyCostChart'), {
+            type: 'line',
+            data: chartData,
+            options: {
+                ...defaultOptions(),
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+    }
+
+    populateYearFilter(trendYearFilter, monthlyVisitsData.labels);
+    populateYearFilter(costTrendYearFilter, monthlyCostData.labels);
+
+    renderVisitsTrendChart();
+    renderCostTrendChart();
+
+    trendViewType.addEventListener('change', renderVisitsTrendChart);
+    trendYearFilter.addEventListener('change', renderVisitsTrendChart);
+    trendMonthFilter.addEventListener('change', renderVisitsTrendChart);
+
+    costTrendViewType.addEventListener('change', renderCostTrendChart);
+    costTrendYearFilter.addEventListener('change', renderCostTrendChart);
+    costTrendMonthFilter.addEventListener('change', renderCostTrendChart);
+
+    const chipRow = document.getElementById("selectedHospitalChipRow");
+    const compareTopForm = document.getElementById("compareTopForm");
+
+    if (chipRow && compareTopForm) {
+        chipRow.addEventListener("click", function(e) {
+            const chip = e.target.closest(".hospital-chip");
+            if (!chip) return;
+
+            if (e.ctrlKey || e.metaKey) {
+                const hospitalId = chip.dataset.hospitalId;
+                const inputs = compareTopForm.querySelectorAll('input[name="hospital_ids"]');
+
+                let remaining = [];
+                inputs.forEach(input => {
+                    if (input.value !== hospitalId) {
+                        remaining.push(input.value);
+                    }
+                });
+
+                if (remaining.length < 2) {
+                    alert("At least 2 hospitals are required for comparison.");
+                    return;
+                }
+
+                inputs.forEach(input => input.remove());
+
+                remaining.forEach(id => {
+                    const hidden = document.createElement("input");
+                    hidden.type = "hidden";
+                    hidden.name = "hospital_ids";
+                    hidden.value = id;
+                    compareTopForm.appendChild(hidden);
+                });
+
+                compareTopForm.submit();
+            }
+        });
+    }
+</script>
+{% endblock %}

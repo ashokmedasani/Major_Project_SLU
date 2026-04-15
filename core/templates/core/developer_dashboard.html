@@ -1,0 +1,24 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<h1 class="page-title">Developer Dashboard</h1>
+
+<div class="button-row">
+    <a class="btn-primary" href="{% url 'batch_upload' %}">Upload ZIP Batch</a>
+    <a class="btn-secondary" href="{% url 'batch_history' %}">Batch History</a>
+    <a class="btn-secondary" href="{% url 'rebuild_master' %}">Rebuild Summaries</a>
+    <a href="{% url 'dashboard' %}" class="btn-secondary">Dashboard</a>
+</div>
+
+<div class="card">
+    <h2>Recent Batches</h2>
+    <ul>
+        {% for batch in batches %}
+            <li>
+                <a href="{% url 'batch_detail' batch.id %}">
+                    {{ batch.zip_file_name }} - {{ batch.status }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,1168 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<style>
+    :root {
+        --primary: #1e4ed8;
+        --primary-dark: #173ea9;
+        --primary-soft: #eef4ff;
+        --accent: #0f766e;
+        --text: #12263f;
+        --muted: #64748b;
+        --line: #dbe7f5;
+        --bg: #f5f9ff;
+        --card: #ffffff;
+        --danger-bg: #fff1f2;
+        --danger-text: #be123c;
+        --shadow: 0 16px 40px rgba(18, 38, 63, 0.08);
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+    }
+
+    .rec-page {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 28px 18px 40px;
+        color: var(--text);
+    }
+
+    .hero-card {
+        background:
+            radial-gradient(circle at top right, rgba(30, 78, 216, 0.14), transparent 28%),
+            linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
+        border: 1px solid #dce8f8;
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+    }
+
+    .hero-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .hero-title {
+        font-size: 34px;
+        font-weight: 900;
+        color: #163d7a;
+        margin: 0 0 8px;
+        line-height: 1.1;
+    }
+
+    .hero-sub {
+        font-size: 14px;
+        color: var(--muted);
+        max-width: 760px;
+        line-height: 1.6;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-view,
+    .btn-danger-lite {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-weight: 800;
+        font-size: 14px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), #4f8fff);
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(30, 78, 216, 0.22);
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-view:hover,
+    .btn-danger-lite:hover {
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background: #fff;
+        color: #204277;
+        border: 1px solid var(--line);
+    }
+
+    .btn-view {
+        background: #edf4ff;
+        color: #174c93;
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+
+    .btn-danger-lite {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border: 1px solid #fecdd3;
+    }
+
+    .top-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .glass-card {
+        background: var(--card);
+        border: 1px solid #dce8f8;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        padding: 22px;
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 900;
+        color: #173d72;
+        margin-bottom: 16px;
+    }
+
+    .selected-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+        gap: 14px;
+    }
+
+    .filter-box {
+        border-radius: 18px;
+        padding: 16px;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+        border: 1px solid #dbe8ff;
+    }
+
+    .filter-box .label {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #6b7e99;
+        margin-bottom: 6px;
+        letter-spacing: 0.5px;
+    }
+
+    .filter-box .value {
+        font-size: 20px;
+        font-weight: 900;
+        color: #123c77;
+    }
+
+    .additional-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 14px;
+        align-items: end;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #26456c;
+    }
+
+    .form-control,
+    select {
+        width: 100%;
+        height: 46px;
+        border: 1px solid #cddcf1;
+        border-radius: 12px;
+        background: #fff;
+        padding: 0 14px;
+        font-size: 14px;
+        box-sizing: border-box;
+        outline: none;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .metric-card {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid #dce8f8;
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 10px 24px rgba(18, 38, 63, 0.05);
+    }
+
+    .metric-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 72px;
+        height: 72px;
+        background: radial-gradient(circle, rgba(30, 78, 216, 0.12), transparent 65%);
+        border-radius: 50%;
+        transform: translate(18px, -18px);
+    }
+
+    .metric-label {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #71839d;
+        margin-bottom: 8px;
+    }
+
+    .metric-value {
+        font-size: 30px;
+        font-weight: 900;
+        color: #163d72;
+        margin-bottom: 6px;
+        line-height: 1.1;
+    }
+
+    .metric-sub {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+
+    .compare-banner {
+        background: linear-gradient(135deg, #eaf3ff 0%, #f8fbff 100%);
+        border: 1px solid #d7e7ff;
+        border-radius: 22px;
+        padding: 22px;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .compare-left {
+        flex: 1 1 620px;
+    }
+
+    .compare-heading {
+        font-size: 21px;
+        font-weight: 900;
+        color: #173d72;
+        margin-bottom: 6px;
+    }
+
+    .compare-text {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+        margin-bottom: 12px;
+        max-width: 760px;
+    }
+
+    .selection-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        min-height: 40px;
+    }
+
+    .selection-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid #d6e6ff;
+        color: #17447c;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .selection-chip button {
+        border: none;
+        background: transparent;
+        color: #b4233f;
+        font-size: 16px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+    }
+
+    .selection-empty {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 10px 0;
+    }
+
+    .compare-right {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .selection-count {
+        background: #fff;
+        border: 1px solid #d6e6ff;
+        color: #173d72;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-weight: 900;
+        font-size: 14px;
+    }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .section-shell {
+        background: var(--card);
+        border: 1px solid #dce8f8;
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 18px 20px;
+        border-bottom: 1px solid #e8f0fb;
+        background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+    }
+
+    .section-head h2 {
+        font-size: 20px;
+        font-weight: 900;
+        color: #173d72;
+        margin: 0;
+    }
+
+    .section-note {
+        font-size: 12px;
+        font-weight: 800;
+        color: #5f7695;
+        background: #edf4ff;
+        border-radius: 999px;
+        padding: 8px 12px;
+        white-space: nowrap;
+    }
+
+    .list-wrap {
+        padding: 18px;
+    }
+
+    .hospital-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .hospital-item,
+    .recommend-card {
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        border: 1px solid #e1ebf7;
+        border-radius: 20px;
+        padding: 18px;
+        transition: 0.2s ease;
+    }
+
+    .hospital-item:hover,
+    .recommend-card:hover {
+        border-color: #cfe0fb;
+        box-shadow: 0 10px 22px rgba(18, 38, 63, 0.06);
+    }
+
+    .hospital-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .hospital-name {
+        font-size: 18px;
+        font-weight: 900;
+        color: #123c77;
+        line-height: 1.35;
+        margin-bottom: 4px;
+    }
+
+    .hospital-loc {
+        font-size: 13px;
+        color: #60718d;
+    }
+
+    .compare-check {
+        font-weight: 800;
+        color: #204277;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #eef5ff;
+        border: 1px solid #dbe8ff;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    .compare-check input {
+        transform: scale(1.08);
+    }
+
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+        margin-bottom: 14px;
+    }
+
+    .stat-box {
+        background: #f4f8ff;
+        border: 1px solid #dde9fb;
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .stat-box .s-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #71839d;
+        margin-bottom: 5px;
+    }
+
+    .stat-box .s-value {
+        font-size: 20px;
+        font-weight: 900;
+        color: #163d72;
+    }
+
+    .hospital-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .score-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: #e8f7f4;
+        color: #0f766e;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+        border: 1px solid #c5efe9;
+    }
+
+    .recommended-wrap {
+        margin-bottom: 24px;
+    }
+
+    .recommend-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(300px, 1fr));
+        gap: 18px;
+        padding: 18px;
+    }
+
+    .map-card {
+        background: var(--card);
+        border: 1px solid #dce8f8;
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .map-head {
+        padding: 18px 20px;
+        border-bottom: 1px solid #e8f0fb;
+        background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+    }
+
+    .map-head h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 900;
+        color: #173d72;
+    }
+
+    .map-wrap {
+        height: 460px;
+    }
+
+    #hospitalMap {
+        width: 100%;
+        height: 100%;
+    }
+
+    .empty-text {
+        font-size: 14px;
+        color: var(--muted);
+        padding: 6px 0;
+    }
+
+    @media (max-width: 1250px) {
+        .top-grid,
+        .content-grid,
+        .recommend-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .metrics-grid {
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+        }
+    }
+
+    @media (max-width: 760px) {
+        .metrics-grid,
+        .selected-filter-grid,
+        .additional-form-grid,
+        .stats-row {
+            grid-template-columns: 1fr;
+        }
+
+        .hero-title {
+            font-size: 28px;
+        }
+
+        .hero-card,
+        .glass-card,
+        .compare-banner,
+        .section-shell,
+        .map-card {
+            border-radius: 18px;
+        }
+
+        .hospital-top {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="rec-page">
+
+    <div class="hero-card">
+        <div class="hero-top">
+            <div>
+                <h1 class="hero-title">Hospital Recommendations</h1>
+                <div class="hero-sub">
+                    Review hospitals based on your selected filters, apply additional filters,
+                    compare hospitals, and explore recommendations with the same logic in a cleaner layout.
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <a href="{% url 'home' %}" class="btn-secondary">Back to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="top-grid">
+        <div class="glass-card">
+            <div class="section-title">Selected Filters</div>
+            <div class="selected-filter-grid">
+                <div class="filter-box">
+                    <div class="label">State</div>
+                    <div class="value">{{ selected_filters.state|default:"All States" }}</div>
+                </div>
+                <div class="filter-box">
+                    <div class="label">City</div>
+                    <div class="value">{{ selected_filters.city|default:"All Cities" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div class="section-title">Additional Filters</div>
+            <form method="get">
+                <input type="hidden" name="state" value="{{ selected_filters.state }}">
+                <input type="hidden" name="city" value="{{ selected_filters.city }}">
+
+                <div class="additional-form-grid">
+                    <div class="form-group">
+                        <label for="{{ filters_form.gender.id_for_label }}">Gender</label>
+                        {{ filters_form.gender }}
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ filters_form.payer_name.id_for_label }}">Insurance Payer</label>
+                        {{ filters_form.payer_name }}
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Apply Filters</button>
+                    <a href="{% url 'home' %}" class="btn-secondary">Back to Home</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">Total Visits</div>
+            <div class="metric-value">{{ overall.total_visits|default:0 }}</div>
+            <div class="metric-sub">encounters after applied filters</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Hospitals Found</div>
+            <div class="metric-value">{{ overall.total_hospitals|default:0 }}</div>
+            <div class="metric-sub">matching hospitals in current selection</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Avg Coverage</div>
+            <div class="metric-value">${{ overall.avg_coverage|floatformat:2|default:"0.00" }}</div>
+            <div class="metric-sub">average payer-covered amount</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Avg Out of Pocket</div>
+            <div class="metric-value">${{ overall.avg_oop|floatformat:2|default:"0.00" }}</div>
+            <div class="metric-sub">average patient-paid amount</div>
+        </div>
+    </div>
+
+    <div class="compare-banner">
+        <div class="compare-left">
+            <div class="compare-heading">Compare Selection</div>
+            <div class="compare-text">
+                Select at least 2 hospitals and at most 4 hospitals.
+                Compare page will carry only the <strong>Insurance Payer</strong> filter.
+                State, City, and Gender will not be applied there.
+            </div>
+
+            <div class="selection-chips" id="selectionChips">
+                <span class="selection-empty">No hospitals selected yet.</span>
+            </div>
+        </div>
+
+        <div class="compare-right">
+            <div class="selection-count">
+                Selected: <span id="selectedCount">0</span> / 4
+            </div>
+
+            <form id="compareForm" method="get" action="{% url 'compare_hospitals' %}">
+                {% if filters_form.payer_name.value %}
+                    <input type="hidden" name="payer_name" value="{{ filters_form.payer_name.value }}">
+                {% endif %}
+                <button type="button" id="compareBtn" class="btn-primary">Compare Selected Hospitals</button>
+            </form>
+
+            <button type="button" id="resetCompareBtn" class="btn-danger-lite">Reset Selection</button>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <div class="section-shell">
+            <div class="section-head">
+                <h2>Top 10 Hospitals by Visits</h2>
+                <div class="section-note">Visits Focus</div>
+            </div>
+
+            <div class="list-wrap">
+                <div class="hospital-list">
+                    {% for hospital in top_by_visits %}
+                    <div class="hospital-item">
+                        <div class="hospital-top">
+                            <div>
+                                <div class="hospital-name">{{ hospital.name }}</div>
+                                <div class="hospital-loc">{{ hospital.city }}, {{ hospital.state }}</div>
+                            </div>
+
+                            <label class="compare-check">
+                                <input
+                                    type="checkbox"
+                                    class="compare-checkbox"
+                                    data-id="{{ hospital.id }}"
+                                    data-name="{{ hospital.name|escape }}"
+                                    value="{{ hospital.id }}"
+                                >
+                                Compare
+                            </label>
+                        </div>
+
+                        <div class="stats-row">
+                            <div class="stat-box">
+                                <span class="s-label">Visits</span>
+                                <span class="s-value">{{ hospital.visits }}</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="s-label">Save %</span>
+                                <span class="s-value">{{ hospital.saving_pct|floatformat:2 }}%</span>
+                            </div>
+                        </div>
+
+                        <div class="hospital-actions">
+                            <a
+                                href="{% url 'hospital_detail' hospital.id %}?gender={{ filters_form.gender.value|default:''|urlencode }}&payer_name={{ filters_form.payer_name.value|default:''|urlencode }}"
+                                class="btn-view"
+                            >
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-text">No hospitals found for selected filters.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="section-shell">
+            <div class="section-head">
+                <h2>Top 10 Hospitals by Coverage</h2>
+                <div class="section-note">Coverage Focus</div>
+            </div>
+
+            <div class="list-wrap">
+                <div class="hospital-list">
+                    {% for hospital in top_by_coverage %}
+                    <div class="hospital-item">
+                        <div class="hospital-top">
+                            <div>
+                                <div class="hospital-name">{{ hospital.name }}</div>
+                                <div class="hospital-loc">{{ hospital.city }}, {{ hospital.state }}</div>
+                            </div>
+
+                            <label class="compare-check">
+                                <input
+                                    type="checkbox"
+                                    class="compare-checkbox"
+                                    data-id="{{ hospital.id }}"
+                                    data-name="{{ hospital.name|escape }}"
+                                    value="{{ hospital.id }}"
+                                >
+                                Compare
+                            </label>
+                        </div>
+
+                        <div class="stats-row">
+                            <div class="stat-box">
+                                <span class="s-label">Visits</span>
+                                <span class="s-value">{{ hospital.visits }}</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="s-label">Save %</span>
+                                <span class="s-value">{{ hospital.saving_pct|floatformat:2 }}%</span>
+                            </div>
+                        </div>
+
+                        <div class="hospital-actions">
+                            <a
+                                href="{% url 'hospital_detail' hospital.id %}?gender={{ filters_form.gender.value|default:''|urlencode }}&payer_name={{ filters_form.payer_name.value|default:''|urlencode }}"
+                                class="btn-view"
+                            >
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-text">No hospitals found for selected filters.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-shell recommended-wrap">
+        <div class="section-head">
+            <h2>Top 5 Recommended Hospitals</h2>
+            <div class="section-note">Recommendation Score</div>
+        </div>
+
+        <div class="recommend-grid">
+            {% for hospital in top_recommendations %}
+            <div class="recommend-card">
+                <div class="hospital-top">
+                    <div>
+                        <div class="hospital-name">{{ hospital.name }}</div>
+                        <div class="hospital-loc">{{ hospital.city }}, {{ hospital.state }}</div>
+                    </div>
+                    <div class="score-badge">Score: {{ hospital.recommendation_score }}</div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <span class="s-label">Visits</span>
+                        <span class="s-value">{{ hospital.visits }}</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="s-label">Save %</span>
+                        <span class="s-value">{{ hospital.saving_pct|floatformat:2 }}%</span>
+                    </div>
+                </div>
+
+                <div class="hospital-actions">
+                    <label class="compare-check">
+                        <input
+                            type="checkbox"
+                            class="compare-checkbox"
+                            data-id="{{ hospital.id }}"
+                            data-name="{{ hospital.name|escape }}"
+                            value="{{ hospital.id }}"
+                        >
+                        Compare
+                    </label>
+
+                    <a
+                        href="{% url 'hospital_detail' hospital.id %}?gender={{ filters_form.gender.value|default:''|urlencode }}&payer_name={{ filters_form.payer_name.value|default:''|urlencode }}"
+                        class="btn-view"
+                    >
+                        View Details
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-text" style="padding: 0 18px 18px;">No recommendations available for selected filters.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="map-card">
+        <div class="map-head">
+            <h2>Hospital Hotspot Map</h2>
+        </div>
+        <div class="map-wrap">
+            <div id="hospitalMap"></div>
+        </div>
+    </div>
+</div>
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const mapPoints = {{ map_points_json|safe }};
+
+    const map = L.map('hospitalMap').setView([39.5, -98.35], 4);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    if (mapPoints.length > 0) {
+        const bounds = [];
+
+        mapPoints.forEach(point => {
+            const marker = L.circleMarker([point.lat, point.lon], {
+                radius: Math.max(5, Math.min(14, point.visits / 8)),
+                fillOpacity: 0.65,
+                weight: 1
+            }).addTo(map);
+
+            marker.bindTooltip(point.name, { direction: 'top' });
+            bounds.push([point.lat, point.lon]);
+        });
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [25, 25] });
+        }
+    }
+
+    const compareCheckboxes = Array.from(document.querySelectorAll('.compare-checkbox'));
+    const selectionChips = document.getElementById('selectionChips');
+    const selectedCount = document.getElementById('selectedCount');
+    const compareBtn = document.getElementById('compareBtn');
+    const compareForm = document.getElementById('compareForm');
+    const resetCompareBtn = document.getElementById('resetCompareBtn');
+
+    const selectedHospitals = new Map();
+
+    function syncCheckboxes(hospitalId, checked) {
+        document.querySelectorAll(`.compare-checkbox[data-id="${hospitalId}"]`).forEach(cb => {
+            cb.checked = checked;
+        });
+    }
+
+    function renderSelectionChips() {
+        const entries = Array.from(selectedHospitals.entries());
+        selectedCount.textContent = entries.length;
+
+        if (entries.length === 0) {
+            selectionChips.innerHTML = '<span class="selection-empty">No hospitals selected yet.</span>';
+            return;
+        }
+
+        selectionChips.innerHTML = entries.map(([id, name]) => `
+            <span class="selection-chip">
+                ${name}
+                <button type="button" data-remove-id="${id}" title="Remove">×</button>
+            </span>
+        `).join('');
+
+        selectionChips.querySelectorAll('button[data-remove-id]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const id = this.getAttribute('data-remove-id');
+                selectedHospitals.delete(id);
+                syncCheckboxes(id, false);
+                renderSelectionChips();
+            });
+        });
+    }
+
+    function handleCheckboxChange(e) {
+        const cb = e.target;
+        const hospitalId = cb.dataset.id;
+        const hospitalName = cb.dataset.name;
+
+        if (cb.checked) {
+            if (!selectedHospitals.has(hospitalId) && selectedHospitals.size >= 4) {
+                cb.checked = false;
+                alert('You can compare a maximum of 4 hospitals only.');
+                return;
+            }
+            selectedHospitals.set(hospitalId, hospitalName);
+            syncCheckboxes(hospitalId, true);
+        } else {
+            selectedHospitals.delete(hospitalId);
+            syncCheckboxes(hospitalId, false);
+        }
+
+        renderSelectionChips();
+    }
+
+    compareCheckboxes.forEach(cb => {
+        cb.addEventListener('change', handleCheckboxChange);
+    });
+
+    compareBtn.addEventListener('click', function () {
+        if (selectedHospitals.size < 2) {
+            alert('Please select at least 2 hospitals to compare.');
+            return;
+        }
+
+        compareForm.querySelectorAll('input[name="hospital_ids"]').forEach(el => el.remove());
+
+        Array.from(selectedHospitals.keys()).forEach(hospitalId => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'hospital_ids';
+            hidden.value = hospitalId;
+            compareForm.appendChild(hidden);
+        });
+
+        compareForm.submit();
+    });
+
+    resetCompareBtn.addEventListener('click', function () {
+        selectedHospitals.clear();
+        compareCheckboxes.forEach(cb => cb.checked = false);
+        renderSelectionChips();
+    });
+
+    renderSelectionChips();
+</script>
+
+<style>
+    .chatbot-fab {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+        z-index: 9999;
+    }
+    .chatbot-box {
+        position: fixed;
+        right: 24px;
+        bottom: 96px;
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        height: 540px;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+        overflow: hidden;
+        display: none;
+        flex-direction: column;
+        z-index: 9999;
+        border: 1px solid #e5e7eb;
+    }
+    .chatbot-header {
+        background: #1d4ed8;
+        color: #fff;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 16px;
+    }
+    .chatbot-body {
+        flex: 1;
+        padding: 14px;
+        overflow-y: auto;
+        background: #f8fafc;
+    }
+    .chat-row {
+        margin-bottom: 12px;
+        display: flex;
+    }
+    .chat-row.user {
+        justify-content: flex-end;
+    }
+    .chat-bubble {
+        max-width: 82%;
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 14px;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+    .chat-row.bot .chat-bubble {
+        background: #e0ecff;
+        color: #0f172a;
+    }
+    .chat-row.user .chat-bubble {
+        background: #1d4ed8;
+        color: #fff;
+    }
+    .chatbot-footer {
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+        background: #fff;
+    }
+    .chatbot-input {
+        flex: 1;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+    }
+    .chatbot-send {
+        border: none;
+        background: #1d4ed8;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    </style>
+    
+    <button class="chatbot-fab" id="chatbotFab">💬</button>
+    
+    <div class="chatbot-box" id="chatbotBox">
+        <div class="chatbot-header">Hospital Assistant</div>
+        <div class="chatbot-body" id="chatbotBody"></div>
+        <div class="chatbot-footer">
+            <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type here..." />
+            <button id="chatbotSend" class="chatbot-send">Send</button>
+        </div>
+    </div>
+    
+    <script>
+    (function () {
+        const fab = document.getElementById("chatbotFab");
+        const box = document.getElementById("chatbotBox");
+        const body = document.getElementById("chatbotBody");
+        const input = document.getElementById("chatbotInput");
+        const sendBtn = document.getElementById("chatbotSend");
+        const endpoint = "{% url 'chatbot_message' %}";
+    
+        function addMessage(text, role) {
+            const row = document.createElement("div");
+            row.className = "chat-row " + role;
+    
+            const bubble = document.createElement("div");
+            bubble.className = "chat-bubble";
+            bubble.textContent = text;
+    
+            row.appendChild(bubble);
+            body.appendChild(row);
+            body.scrollTop = body.scrollHeight;
+        }
+    
+        async function sendMessage(message) {
+            if (message) addMessage(message, "user");
+    
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: message || "" })
+            });
+    
+            const data = await response.json();
+            if (data.ok) {
+                addMessage(data.reply, "bot");
+            } else {
+                addMessage("Something went wrong.", "bot");
+            }
+        }
+    
+        fab.addEventListener("click", function () {
+            const isOpen = box.style.display === "flex";
+            box.style.display = isOpen ? "none" : "flex";
+    
+            if (!isOpen && body.childElementCount === 0) {
+                sendMessage("");
+            }
+        });
+    
+        sendBtn.addEventListener("click", function () {
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = "";
+            sendMessage(msg);
+        });
+    
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                sendBtn.click();
+            }
+        });
+    })();
+    </script>
+
+{% endblock %}

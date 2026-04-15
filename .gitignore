@@ -1,15 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
 # Virtual environment
 venv/
+.venv/
+env/
 
-# Python cache
-__pycache__/
-*.pyc
-
-# Django database
+# Django
 db.sqlite3
+*.sqlite3
 
-# Dataset folder
-Data/
-
-# Environment
+# Environment / secrets
 .env
+.env.*
+*.env
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python cache / test / build
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Static collected files
+staticfiles/
+
+# Media / uploaded data
+media/
+uploads/
+processed/
+master/
+exports/
+
+# Your batch/data files
+*.zip
+*.csv
+*.xlsx
+*.xls
+*.parquet
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Ignore generated datasets inside app folders too
+**/media/**
+**/uploads/**
+**/processed/**
+**/master/**
+**/exports/**
