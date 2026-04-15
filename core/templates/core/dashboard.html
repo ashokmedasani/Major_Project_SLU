@@ -1,0 +1,501 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+<style>
+    .dashboard-page {
+        padding: 24px;
+        background: #f5f9ff;
+        min-height: 100vh;
+    }
+
+    .dashboard-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #214e97;
+        margin-bottom: 20px;
+    }
+
+    .filter-card,
+    .topn-card,
+    .section-card,
+    .kpi-card,
+    .summary-card {
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(26, 71, 140, 0.08);
+    }
+
+    .filter-card,
+    .topn-card {
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 14px;
+        align-items: end;
+    }
+
+    .filter-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #23427a;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #cfdcf2;
+        background: white;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 10px 16px;
+        border-radius: 10px;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: #3f73e0;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #e9f0fb;
+        color: #23427a;
+    }
+
+    .topn-grid {
+        display: grid;
+        grid-template-columns: 280px auto;
+        gap: 20px;
+        align-items: end;
+    }
+
+    .topn-quick {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .topn-quick a {
+        padding: 6px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        background: #eef4ff;
+        color: #214e97;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .topn-quick a.active {
+        background: #3f73e0;
+        color: white;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .kpi-card {
+        padding: 18px;
+    }
+
+    .kpi-label {
+        font-size: 0.95rem;
+        color: #4a6797;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .kpi-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1f4a94;
+    }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-bottom: 22px;
+    }
+
+    .chart-full {
+        grid-column: 1 / -1;
+    }
+
+    .section-card {
+        padding: 18px;
+        overflow: hidden;
+    }
+
+    .section-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #23427a;
+        margin-bottom: 14px;
+    }
+
+    .section-subtitle {
+        color: #6b7b95;
+        font-size: 0.95rem;
+        margin-top: -6px;
+    }
+
+    .empty-box {
+        padding: 30px;
+        text-align: center;
+        color: #6b7b95;
+        background: #f8fbff;
+        border-radius: 12px;
+    }
+
+    .predictive-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .predictive-controls {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(150px, 1fr));
+        gap: 12px;
+        width: 100%;
+        margin-top: 12px;
+    }
+
+    .summary-card {
+        padding: 18px;
+        margin-top: 16px;
+        margin-bottom: 16px;
+        border: 1px solid #e8eef9;
+    }
+
+    .summary-title {
+        font-size: 0.95rem;
+        color: #5b6f92;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f4a94;
+    }
+
+    @media (max-width: 992px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .topn-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .predictive-controls {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .predictive-controls {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="dashboard-page">
+    <div class="dashboard-title">System Dashboard</div>
+
+    <!-- Row 1: Main Filters -->
+    <div class="filter-card">
+        <form method="get" id="dashboardFilterForm">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label for="state">State</label>
+                    <select name="state" id="state">
+                        <option value="">All States</option>
+                        {% for state in states %}
+                            <option value="{{ state }}" {% if selected_state == state %}selected{% endif %}>{{ state }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="city">City</label>
+                    <select name="city" id="city">
+                        <option value="">All Cities</option>
+                        {% for city in cities %}
+                            <option value="{{ city }}" {% if selected_city == city %}selected{% endif %}>{{ city }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="year">Year</label>
+                    <select name="year" id="year">
+                        <option value="">All Years</option>
+                        {% for year in years %}
+                            <option value="{{ year }}" {% if selected_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="submit" class="btn-primary">Apply Filters</button>
+                    <a href="{% url 'dashboard' %}" class="btn-secondary">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Row 2: Top N -->
+    <div class="topn-card">
+        <div class="topn-grid">
+            <div class="filter-group">
+                <label for="top_n">Top N</label>
+                <input
+                    type="number"
+                    form="dashboardFilterForm"
+                    name="top_n"
+                    id="top_n"
+                    min="1"
+                    value="{{ selected_top_n }}"
+                    placeholder="Enter number"
+                >
+            </div>
+
+            <div>
+                <label style="display:block; font-weight:600; margin-bottom:8px; color:#23427a;">Quick Select</label>
+                <div class="topn-quick">
+                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=5"
+                       class="{% if selected_top_n == '5' %}active{% endif %}">5</a>
+                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=10"
+                       class="{% if selected_top_n == '10' %}active{% endif %}">10</a>
+                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=15"
+                       class="{% if selected_top_n == '15' %}active{% endif %}">15</a>
+                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=20"
+                       class="{% if selected_top_n == '20' %}active{% endif %}">20</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">Total Patients</div>
+            <div class="kpi-value">{{ total_patients }}</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Total Hospitals</div>
+            <div class="kpi-value">{{ total_hospitals }}</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Total Visits</div>
+            <div class="kpi-value">{{ total_visits }}</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Total States</div>
+            <div class="kpi-value">{{ total_states }}</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Total Cities</div>
+            <div class="kpi-value">{{ total_cities }}</div>
+        </div>
+    </div>
+
+    <!-- Age Group -->
+    <div class="charts-grid">
+        <div class="section-card chart-full">
+            <div class="section-title">Visits by Age Group</div>
+            {% if chart_age_group %}
+                {{ chart_age_group|safe }}
+            {% else %}
+                <div class="empty-box">No age group data available.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Row 1 Charts -->
+    <div class="charts-grid">
+        <div class="section-card">
+            <div class="section-title">Top Cities by Visits</div>
+            {% if chart_cities %}
+                {{ chart_cities|safe }}
+            {% else %}
+                <div class="empty-box">No city data available.</div>
+            {% endif %}
+        </div>
+
+        <div class="section-card">
+            <div class="section-title">Top Insurance Providers</div>
+            {% if chart_payers %}
+                {{ chart_payers|safe }}
+            {% else %}
+                <div class="empty-box">No insurance provider data available.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Predictive Trend Card -->
+    <div class="charts-grid">
+        <div class="section-card chart-full">
+            <div class="predictive-header">
+                <div>
+                    <div class="section-title" style="margin-bottom:6px;">
+                        {{ pred_metric|title }} Predictive Analysis
+                    </div>
+                    <div class="section-subtitle">
+                        Historical years show actual monthly values. Forecast years show predicted monthly values. The latest available month is excluded from training, and forecast starts from that month for the next 18 months.
+                    </div>
+                </div>
+            </div>
+
+            <form method="get" class="predictive-controls">
+                <input type="hidden" name="state" value="{{ selected_state }}">
+                <input type="hidden" name="city" value="{{ selected_city }}">
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <input type="hidden" name="top_n" value="{{ selected_top_n }}">
+
+                <div class="filter-group">
+                    <label for="pred_metric">Metric</label>
+                    <select name="pred_metric" id="pred_metric" onchange="this.form.submit()">
+                        <option value="visits" {% if pred_metric == "visits" %}selected{% endif %}>Visits</option>
+                        <option value="patients" {% if pred_metric == "patients" %}selected{% endif %}>Patients</option>
+                        <option value="hospitals" {% if pred_metric == "hospitals" %}selected{% endif %}>Hospitals</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="pred_model">Model</label>
+                    <select name="pred_model" id="pred_model" onchange="this.form.submit()">
+                        <option value="random_forest" {% if pred_model == "random_forest" %}selected{% endif %}>Random Forest</option>
+                        <option value="xgboost" {% if pred_model == "xgboost" %}selected{% endif %}>XGBoost</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="pred_year">Year</label>
+                    <select name="pred_year" id="pred_year" onchange="this.form.submit()">
+                        <option value="">Select Year</option>
+                        {% for yr in predictive_years %}
+                            <option value="{{ yr }}" {% if pred_year == yr|stringformat:"s" %}selected{% endif %}>{{ yr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="pred_month">Month</label>
+                    <select name="pred_month" id="pred_month" onchange="this.form.submit()">
+                        {% for month_value, month_label in month_options %}
+                            <option value="{{ month_value }}" {% if pred_month == month_value %}selected{% endif %}>{{ month_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="submit" class="btn-primary">Update</button>
+                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n={{ selected_top_n }}" class="btn-secondary">Reset Card</a>
+                </div>
+            </form>
+
+            <div class="summary-card">
+                {% if prediction_summary_label and prediction_summary_value %}
+                    <div class="summary-title">{{ prediction_summary_label }}</div>
+                    <div class="summary-value">{{ prediction_summary_value }}</div>
+                {% else %}
+                    <div class="empty-box">No summary available for the selected filters.</div>
+                {% endif %}
+            </div>
+
+            <div>
+                {% if chart_predictive %}
+                    {{ chart_predictive|safe }}
+                {% else %}
+                    <div class="empty-box">No predictive data available.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="charts-grid">
+        <div class="section-card chart-full">
+            <div class="section-title">Historical and Future Monthly Comparison</div>
+            <div class="section-subtitle">
+                This graph follows the top page filters and the selected predictive metric only. It ignores predictive model, predictive year, and predictive month.
+            </div>
+    
+            <div style="margin-top:18px;">
+                {% if chart_compare_monthly %}
+                    {{ chart_compare_monthly|safe }}
+                {% else %}
+                    <div class="empty-box">No comparison graph data available.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- States + Coverage -->
+    <div class="charts-grid">
+        <div class="section-card">
+            <div class="section-title">Top States by Visits</div>
+            {% if chart_states %}
+                {{ chart_states|safe }}
+            {% else %}
+                <div class="empty-box">No state data available.</div>
+            {% endif %}
+        </div>
+
+        <div class="section-card">
+            <div class="section-title">State Cost / Coverage / Out-of-Pocket</div>
+            {% if chart_coverage_state %}
+                {{ chart_coverage_state|safe }}
+            {% else %}
+                <div class="empty-box">No state coverage data available.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- USA Map -->
+    <div class="charts-grid">
+        <div class="section-card chart-full">
+            <div class="section-title">USA State Hotspot Map</div>
+            {% if chart_usa_map %}
+                {{ chart_usa_map|safe }}
+            {% else %}
+                <div class="empty-box">No USA map data available.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

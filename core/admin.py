@@ -1,3 +1,22 @@
 from django.contrib import admin
+from .models import *
 
-# Register your models here.
+admin.site.register(UploadBatch)
+admin.site.register(BatchFile)
+admin.site.register(BatchSyncLog)
+admin.site.register(RawPatient)
+admin.site.register(RawEncounter)
+admin.site.register(RawOrganization)
+admin.site.register(RawProvider)
+admin.site.register(RawObservation)
+admin.site.register(RawImmunization)
+admin.site.register(RawClaim)
+admin.site.register(RawClaimTransaction)
+admin.site.register(RawPayer)
+admin.site.register(RawPayerTransition)
+admin.site.register(MasterPatient)
+admin.site.register(MasterHospital)
+admin.site.register(MasterEncounter)
+admin.site.register(HospitalSummary)
+admin.site.register(HospitalYearlySummary)
+admin.site.register(HospitalMonthlySummary)

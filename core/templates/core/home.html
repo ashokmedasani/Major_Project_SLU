@@ -1,0 +1,555 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<style>
+    .dashboard-wrap {
+        width: 100%;
+        max-width: 1280px;
+        margin: 0 auto;
+    }
+
+    .dashboard-title {
+        font-size: 34px;
+        font-weight: 700;
+        color: #1d4f91;
+        margin: 8px 0 10px 0;
+    }
+
+    .dashboard-subtitle {
+        font-size: 15px;
+        color: #6a7f9d;
+        margin-bottom: 24px;
+    }
+
+    .home-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 24px 22px;
+        margin-bottom: 22px;
+        box-shadow: 0 10px 24px rgba(39, 90, 160, 0.08);
+        border: 1px solid #e4efff;
+    }
+
+    .filter-grid-home {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 16px;
+        align-items: end;
+    }
+
+    .filter-field-home {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filter-field-home label {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1d4f91;
+        margin-bottom: 10px;
+    }
+
+    .filter-field-home label span {
+        color: #d93025;
+    }
+
+    .filter-field-home select {
+        width: 100%;
+        height: 46px;
+        border: 1px solid #bfd4f7;
+        border-radius: 12px;
+        padding: 0 14px;
+        font-size: 15px;
+        background: #ffffff;
+        color: #1f2d3d;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .filter-field-home select:focus {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.15);
+    }
+
+    .required-select select,
+    .required-select .form-select {
+        background: #f7fbff;
+        border: 1.5px solid #8db4f5;
+    }
+
+    .next-btn-wrap {
+        display: flex;
+        align-items: end;
+    }
+
+    .btn-next-home {
+        height: 46px;
+        padding: 0 24px;
+        border: none;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.2s ease;
+        background: #4e73df;
+        color: #ffffff;
+    }
+
+    .btn-next-home:hover {
+        background: #3f63cf;
+    }
+
+    .btn-next-home.disabled-look {
+        opacity: 0.5;
+        pointer-events: none;
+        cursor: not-allowed;
+    }
+
+    .info-note {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #6d809d;
+    }
+
+    .kpi-grid-home {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .kpi-card-home {
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 10px 24px rgba(39, 90, 160, 0.08);
+        border: 1px solid #e4efff;
+    }
+
+    .kpi-card-home h3 {
+        margin: 0 0 14px;
+        font-size: 15px;
+        color: #4a6fa8;
+        font-weight: 700;
+    }
+
+    .kpi-card-home p {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: #1d4f91;
+    }
+
+    .chart-grid-home {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+
+    .chart-card-home {
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 10px 24px rgba(39, 90, 160, 0.08);
+        border: 1px solid #e4efff;
+    }
+
+    .chart-card-home h3 {
+        margin: 0 0 14px;
+        font-size: 18px;
+        color: #1d4f91;
+    }
+
+    .chart-card-home p {
+        margin: 0 0 12px;
+        font-size: 13px;
+        color: #7385a0;
+    }
+
+    #genderChart,
+    #ageChart,
+    #payerChart {
+        min-height: 320px;
+    }
+
+    @media (max-width: 1100px) {
+        .filter-grid-home {
+            grid-template-columns: 1fr;
+        }
+
+        .kpi-grid-home {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .chart-grid-home {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .kpi-grid-home {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-title {
+            font-size: 28px;
+        }
+    }
+</style>
+
+<div class="dashboard-wrap">
+    <h1 class="dashboard-title">Hospital Cost Analysis</h1>
+    <div class="dashboard-subtitle">
+        Choose your required filters and continue to the recommendation page. Below insights show the amount of data available in the system.
+    </div>
+
+    <!-- IMPORTANT: form action should be home_view -->
+    <form method="get" action="{% url 'home' %}" id="homeFilterForm">
+        <div class="home-card">
+            <div class="filter-grid-home">
+                <div class="filter-field-home required-select">
+                    <label for="{{ filters.state.id_for_label }}">State <span>*</span></label>
+                    {{ filters.state }}
+                </div>
+
+                <div class="filter-field-home">
+                    <label for="{{ filters.city.id_for_label }}">City</label>
+                    {{ filters.city }}
+                </div>
+
+                <div class="next-btn-wrap">
+                    <button type="button" class="btn-next-home" id="nextBtn">Next</button>
+                </div>
+            </div>
+
+            <div class="info-note">
+                State is required. City and Insurance Payer are optional.
+            </div>
+        </div>
+    </form>
+
+    <div class="kpi-grid-home">
+        <div class="kpi-card-home">
+            <h3>Total Hospitals</h3>
+            <p>{{ total_hospitals }}</p>
+        </div>
+
+        <div class="kpi-card-home">
+            <h3>Total Patients</h3>
+            <p>{{ total_patients }}</p>
+        </div>
+
+        <div class="kpi-card-home">
+            <h3>Total Visits</h3>
+            <p>{{ total_visits }}</p>
+        </div>
+
+        <div class="kpi-card-home">
+            <h3>Average Cost</h3>
+            <p>{{ avg_cost|floatformat:2 }}</p>
+        </div>
+
+        <div class="kpi-card-home">
+            <h3>Average Coverage</h3>
+            <p>{{ avg_coverage|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    <div class="chart-grid-home">
+        <div class="chart-card-home">
+            <h3>Gender Distribution</h3>
+            <p>Patient gender availability in the system.</p>
+            <div id="genderChart"></div>
+        </div>
+
+        <div class="chart-card-home">
+            <h3>Age Group Distribution</h3>
+            <p>Patient age group spread from available records.</p>
+            <div id="ageChart"></div>
+        </div>
+
+        <div class="chart-card-home">
+            <h3>Top Insurance Payers</h3>
+            <p>Most common insurance payers available in the data.</p>
+            <div id="payerChart"></div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script>
+    const genderData = {{ gender_chart|safe }};
+    const ageData = {{ age_chart|safe }};
+    const payerData = {{ payer_chart|safe }};
+
+    new ApexCharts(document.querySelector("#genderChart"), {
+        chart: {
+            type: "donut",
+            height: 320,
+            toolbar: { show: false }
+        },
+        series: genderData.values,
+        labels: genderData.labels,
+        legend: { position: "bottom" },
+        dataLabels: { enabled: true },
+        stroke: { width: 1 }
+    }).render();
+
+    new ApexCharts(document.querySelector("#ageChart"), {
+        chart: {
+            type: "bar",
+            height: 320,
+            toolbar: { show: false }
+        },
+        series: [{
+            name: "Patients",
+            data: ageData.values
+        }],
+        xaxis: {
+            categories: ageData.labels
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 6,
+                columnWidth: "52%"
+            }
+        },
+        dataLabels: { enabled: false }
+    }).render();
+
+    new ApexCharts(document.querySelector("#payerChart"), {
+        chart: {
+            type: "bar",
+            height: 320,
+            toolbar: { show: false }
+        },
+        series: [{
+            name: "Patients",
+            data: payerData.values
+        }],
+        xaxis: {
+            categories: payerData.labels
+        },
+        plotOptions: {
+            bar: {
+                horizontal: true,
+                borderRadius: 5
+            }
+        },
+        dataLabels: { enabled: false }
+    }).render();
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("homeFilterForm");
+        const stateField = document.getElementById("id_state");
+        const nextBtn = document.getElementById("nextBtn");
+
+        function toggleNextButton() {
+            if (!stateField || !nextBtn) return;
+
+            if (!stateField.value) {
+                nextBtn.classList.add("disabled-look");
+            } else {
+                nextBtn.classList.remove("disabled-look");
+            }
+        }
+
+        if (stateField) {
+            stateField.addEventListener("change", function () {
+                form.submit();   // reload page so city options populate
+            });
+
+            toggleNextButton();
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener("click", function () {
+                if (!stateField.value) return;
+
+                const state = document.getElementById("id_state").value || "";
+                const city = document.getElementById("id_city").value || "";
+
+                const query = new URLSearchParams({
+                    state: state,
+                    city: city,
+                });
+
+                window.location.href = "{% url 'recommendations' %}?" + query.toString();
+            });
+        }
+    });
+</script>
+
+
+<style>
+    .chatbot-fab {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+        z-index: 9999;
+    }
+    .chatbot-box {
+        position: fixed;
+        right: 24px;
+        bottom: 96px;
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        height: 540px;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+        overflow: hidden;
+        display: none;
+        flex-direction: column;
+        z-index: 9999;
+        border: 1px solid #e5e7eb;
+    }
+    .chatbot-header {
+        background: #1d4ed8;
+        color: #fff;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 16px;
+    }
+    .chatbot-body {
+        flex: 1;
+        padding: 14px;
+        overflow-y: auto;
+        background: #f8fafc;
+    }
+    .chat-row {
+        margin-bottom: 12px;
+        display: flex;
+    }
+    .chat-row.user {
+        justify-content: flex-end;
+    }
+    .chat-bubble {
+        max-width: 82%;
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 14px;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+    .chat-row.bot .chat-bubble {
+        background: #e0ecff;
+        color: #0f172a;
+    }
+    .chat-row.user .chat-bubble {
+        background: #1d4ed8;
+        color: #fff;
+    }
+    .chatbot-footer {
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+        background: #fff;
+    }
+    .chatbot-input {
+        flex: 1;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+    }
+    .chatbot-send {
+        border: none;
+        background: #1d4ed8;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    </style>
+    
+    <button class="chatbot-fab" id="chatbotFab">💬</button>
+    
+    <div class="chatbot-box" id="chatbotBox">
+        <div class="chatbot-header">Hospital Assistant</div>
+        <div class="chatbot-body" id="chatbotBody"></div>
+        <div class="chatbot-footer">
+            <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type here..." />
+            <button id="chatbotSend" class="chatbot-send">Send</button>
+        </div>
+    </div>
+    
+    <script>
+    (function () {
+        const fab = document.getElementById("chatbotFab");
+        const box = document.getElementById("chatbotBox");
+        const body = document.getElementById("chatbotBody");
+        const input = document.getElementById("chatbotInput");
+        const sendBtn = document.getElementById("chatbotSend");
+        const endpoint = "{% url 'chatbot_message' %}";
+    
+        function addMessage(text, role) {
+            const row = document.createElement("div");
+            row.className = "chat-row " + role;
+    
+            const bubble = document.createElement("div");
+            bubble.className = "chat-bubble";
+            bubble.textContent = text;
+    
+            row.appendChild(bubble);
+            body.appendChild(row);
+            body.scrollTop = body.scrollHeight;
+        }
+    
+        async function sendMessage(message) {
+            if (message) addMessage(message, "user");
+    
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: message || "" })
+            });
+    
+            const data = await response.json();
+            if (data.ok) {
+                addMessage(data.reply, "bot");
+            } else {
+                addMessage("Something went wrong.", "bot");
+            }
+        }
+    
+        fab.addEventListener("click", function () {
+            const isOpen = box.style.display === "flex";
+            box.style.display = isOpen ? "none" : "flex";
+    
+            if (!isOpen && body.childElementCount === 0) {
+                sendMessage("");
+            }
+        });
+    
+        sendBtn.addEventListener("click", function () {
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = "";
+            sendMessage(msg);
+        });
+    
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                sendBtn.click();
+            }
+        });
+    })();
+    </script>
+
+{% endblock %}

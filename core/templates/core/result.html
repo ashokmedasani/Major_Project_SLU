@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing Result</title>
+</head>
+<body>
+    <h1>Processing Result</h1>
+
+    {% if error %}
+        <h2>Error</h2>
+        <p>{{ error.message }}</p>
+
+        {% if error.missing_files %}
+            <h3>Missing Files</h3>
+            <ul>
+                {% for item in error.missing_files %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endif %}
+
+    {% if success %}
+        <h2>Batch</h2>
+        <p><strong>Name:</strong> {{ success.batch_name }}</p>
+        <p><strong>Merged File:</strong> {{ success.merged_file }}</p>
+
+        <h2>Merged Summary</h2>
+        <p>Rows: {{ success.merged_summary.rows }}</p>
+        <p>Columns: {{ success.merged_summary.columns }}</p>
+        <p>Duplicate Encounter ID: {{ success.merged_summary.duplicate_encounter_id }}</p>
+        <p>Total Missing Cells: {{ success.merged_summary.missing_cells_total }}</p>
+
+        <h2>Master Update</h2>
+        <p>{{ success.master_result.message }}</p>
+        <p>Old Master Rows: {{ success.master_result.old_master_rows }}</p>
+        <p>New Rows: {{ success.master_result.new_rows }}</p>
+        <p>Duplicates Removed: {{ success.master_result.duplicates_removed }}</p>
+        <p>Final Master Rows: {{ success.master_result.final_master_rows }}</p>
+
+        <h2>Table Row Summary</h2>
+        <table border="1" cellpadding="5">
+            <tr>
+                <th>Table</th>
+                <th>Rows</th>
+                <th>Columns</th>
+            </tr>
+            {% for row in success.row_summary %}
+            <tr>
+                <td>{{ row.table_name }}</td>
+                <td>{{ row.row_count }}</td>
+                <td>{{ row.column_count }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+</body>
+</html>
