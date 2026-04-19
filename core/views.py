@@ -363,11 +363,44 @@ def batch_upload_view(request):
                 )
                 messages.error(request, batch.validation_message)
                 return redirect("batch_history")
-
-            store_raw_batch(batch, file_validation["found_files"])
-
+            
+            # ✅ STEP 1: Mark validated FIRST
             batch.status = "validated"
-            batch.validation_message = "Batch validated and raw data stored."
+            batch.validation_message = "Files validated successfully. Starting raw load..."
+            batch.save(update_fields=["status", "validation_message"])
+            
+            BatchSyncLog.objects.create(
+                batch=batch,
+                action="validated",
+                message="Files validated successfully. Starting raw load..."
+            )
+            
+            # ✅ STEP 2: Try raw loading separately
+            try:
+                store_raw_batch(batch, file_validation["found_files"])
+            
+                batch.validation_message = "Raw data loaded successfully."
+                batch.save(update_fields=["validation_message"])
+            
+                BatchSyncLog.objects.create(
+                    batch=batch,
+                    action="raw_loaded",
+                    message="Raw data stored successfully."
+                )
+            
+            except Exception as e:
+                batch.status = "failed"
+                batch.validation_message = f"Raw load failed: {str(e)}"
+                batch.save(update_fields=["status", "validation_message"])
+            
+                BatchSyncLog.objects.create(
+                    batch=batch,
+                    action="raw_failed",
+                    message=str(e)
+                )
+            
+                messages.error(request, f"Raw load failed: {e}")
+                return redirect("batch_detail", batch_id=batch.id)
             batch.processing_completed_at = timezone.now()
             if batch.processing_started_at and batch.processing_completed_at:
                 batch.actual_processing_seconds = int(
