@@ -508,52 +508,6 @@
     <div class="chart-grid">
         <div class="section-card chart-full">
             <div class="chart-header-bar">
-                <h3>Visits Trend</h3>
-                <div class="chart-filter-controls">
-                    <div class="chart-filter-group">
-                        <label>View Type</label>
-                        <select id="visitsViewType">
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                    </div>
-                    <div class="chart-filter-group">
-                        <label>Year</label>
-                        <select id="visitsYearFilter">
-                            <option value="all">All Years</option>
-                        </select>
-                    </div>
-                    <div class="chart-filter-group">
-                        <label>Month</label>
-                        <select id="visitsMonthFilter">
-                            <option value="all">All Months</option>
-                            <option value="01">Jan</option>
-                            <option value="02">Feb</option>
-                            <option value="03">Mar</option>
-                            <option value="04">Apr</option>
-                            <option value="05">May</option>
-                            <option value="06">Jun</option>
-                            <option value="07">Jul</option>
-                            <option value="08">Aug</option>
-                            <option value="09">Sep</option>
-                            <option value="10">Oct</option>
-                            <option value="11">Nov</option>
-                            <option value="12">Dec</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="chart-canvas-wrap">
-                <canvas id="visitsTrendChart"></canvas>
-            </div>
-            <div class="mini-note">
-                Historical visits with predicted extension.
-            </div>
-        </div>
-
-        <div class="section-card chart-full">
-            <div class="chart-header-bar">
                 <h3>Financial Trend</h3>
                 <div class="chart-filter-controls">
                     <div class="chart-filter-group">
@@ -638,13 +592,11 @@
     const futureLookup = JSON.parse('{{ future_lookup_json|escapejs }}');
 
     const yearlyLabels = {{ yearly_labels|safe }};
-    const yearlyVisits = {{ yearly_visits|safe }};
     const yearlyAvgCost = {{ yearly_avg_cost|safe }};
     const yearlyAvgCoverage = {{ yearly_avg_coverage|safe }};
     const yearlyAvgOOP = {{ yearly_avg_oop|safe }};
 
     const monthlyLabels = {{ monthly_labels|safe }};
-    const monthlyVisits = {{ monthly_visits|safe }};
     const monthlyAvgCost = {{ monthly_avg_cost|safe }};
     const monthlyAvgCoverage = {{ monthly_avg_coverage|safe }};
     const monthlyAvgOOP = {{ monthly_avg_oop|safe }};
@@ -668,15 +620,10 @@
     const futureCoverageValue = document.getElementById('futureCoverageValue');
     const futureOOPValue = document.getElementById('futureOOPValue');
 
-    const visitsViewType = document.getElementById('visitsViewType');
-    const visitsYearFilter = document.getElementById('visitsYearFilter');
-    const visitsMonthFilter = document.getElementById('visitsMonthFilter');
-
     const financialViewType = document.getElementById('financialViewType');
     const financialYearFilter = document.getElementById('financialYearFilter');
     const financialMonthFilter = document.getElementById('financialMonthFilter');
 
-    let visitsTrendChart;
     let financialTrendChart;
 
     function formatMoney(value) {
@@ -770,76 +717,6 @@
             labels: filteredLabels,
             series: filteredSeriesLists
         };
-    }
-
-    function buildVisitsChart() {
-        const viewType = visitsViewType.value;
-        const yearValue = visitsYearFilter.value;
-        const monthValue = visitsMonthFilter.value;
-
-        let labels, histSeries, predSeries;
-
-        if (viewType === "yearly") {
-            labels = yearlyLabels;
-            histSeries = yearlyVisits;
-            predSeries = new Array(yearlyLabels.length).fill(null);
-        } else {
-            labels = lineChartData.labels;
-            histSeries = lineChartData.visits_history;
-            predSeries = lineChartData.visits_forecast;
-        }
-
-        const filtered = filterSeries(
-            labels,
-            [histSeries, predSeries],
-            yearValue,
-            monthValue,
-            viewType
-        );
-
-        if (visitsTrendChart) visitsTrendChart.destroy();
-
-        visitsTrendChart = new Chart(document.getElementById('visitsTrendChart'), {
-            type: 'line',
-            data: {
-                labels: filtered.labels,
-                datasets: [
-                    {
-                        label: 'Historical Visits',
-                        data: filtered.series[0],
-                        borderColor: '#2f55d4',
-                        backgroundColor: 'rgba(47,85,212,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false
-                    },
-                    {
-                        label: 'Predicted Visits',
-                        data: filtered.series[1],
-                        borderColor: '#d96c6c',
-                        backgroundColor: 'rgba(217,108,108,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false,
-                        borderDash: [8, 6]
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
-        });
     }
 
     function buildFinancialChart() {
@@ -958,18 +835,12 @@
         });
     }
 
-    populateYearDropdown(visitsYearFilter, lineChartData.labels);
     populateYearDropdown(financialYearFilter, lineChartData.labels);
-
-    visitsViewType.addEventListener("change", buildVisitsChart);
-    visitsYearFilter.addEventListener("change", buildVisitsChart);
-    visitsMonthFilter.addEventListener("change", buildVisitsChart);
 
     financialViewType.addEventListener("change", buildFinancialChart);
     financialYearFilter.addEventListener("change", buildFinancialChart);
     financialMonthFilter.addEventListener("change", buildFinancialChart);
 
-    buildVisitsChart();
     buildFinancialChart();
 
     new Chart(document.getElementById('encounterClassChart'), {
@@ -1064,7 +935,6 @@
     });
 </script>
 
-
 <style>
     .chatbot-fab {
         position: fixed;
@@ -1156,82 +1026,82 @@
         cursor: pointer;
         font-weight: 600;
     }
-    </style>
-    
-    <button class="chatbot-fab" id="chatbotFab">💬</button>
-    
-    <div class="chatbot-box" id="chatbotBox">
-        <div class="chatbot-header">Hospital Detail Assistant</div>
-        <div class="chatbot-body" id="chatbotBody"></div>
-        <div class="chatbot-footer">
-            <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type here..." />
-            <button id="chatbotSend" class="chatbot-send">Send</button>
-        </div>
+</style>
+
+<button class="chatbot-fab" id="chatbotFab">💬</button>
+
+<div class="chatbot-box" id="chatbotBox">
+    <div class="chatbot-header">Hospital Detail Assistant</div>
+    <div class="chatbot-body" id="chatbotBody"></div>
+    <div class="chatbot-footer">
+        <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type here..." />
+        <button id="chatbotSend" class="chatbot-send">Send</button>
     </div>
-    
-    <script>
-    (function () {
-        const fab = document.getElementById("chatbotFab");
-        const box = document.getElementById("chatbotBox");
-        const body = document.getElementById("chatbotBody");
-        const input = document.getElementById("chatbotInput");
-        const sendBtn = document.getElementById("chatbotSend");
-        const endpoint = "{% url 'hospital_detail_chatbot_message' hospital.id %}";
-    
-        function addMessage(text, role) {
-            const row = document.createElement("div");
-            row.className = "chat-row " + role;
-    
-            const bubble = document.createElement("div");
-            bubble.className = "chat-bubble";
-            bubble.textContent = text;
-    
-            row.appendChild(bubble);
-            body.appendChild(row);
-            body.scrollTop = body.scrollHeight;
+</div>
+
+<script>
+(function () {
+    const fab = document.getElementById("chatbotFab");
+    const box = document.getElementById("chatbotBox");
+    const body = document.getElementById("chatbotBody");
+    const input = document.getElementById("chatbotInput");
+    const sendBtn = document.getElementById("chatbotSend");
+    const endpoint = "{% url 'hospital_detail_chatbot_message' hospital.id %}";
+
+    function addMessage(text, role) {
+        const row = document.createElement("div");
+        row.className = "chat-row " + role;
+
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        bubble.textContent = text;
+
+        row.appendChild(bubble);
+        body.appendChild(row);
+        body.scrollTop = body.scrollHeight;
+    }
+
+    async function sendMessage(message) {
+        if (message) addMessage(message, "user");
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: message || "" })
+        });
+
+        const data = await response.json();
+        if (data.ok) {
+            addMessage(data.reply, "bot");
+        } else {
+            addMessage("Something went wrong.", "bot");
         }
-    
-        async function sendMessage(message) {
-            if (message) addMessage(message, "user");
-    
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ message: message || "" })
-            });
-    
-            const data = await response.json();
-            if (data.ok) {
-                addMessage(data.reply, "bot");
-            } else {
-                addMessage("Something went wrong.", "bot");
-            }
+    }
+
+    fab.addEventListener("click", function () {
+        const isOpen = box.style.display === "flex";
+        box.style.display = isOpen ? "none" : "flex";
+
+        if (!isOpen && body.childElementCount === 0) {
+            sendMessage("");
         }
-    
-        fab.addEventListener("click", function () {
-            const isOpen = box.style.display === "flex";
-            box.style.display = isOpen ? "none" : "flex";
-    
-            if (!isOpen && body.childElementCount === 0) {
-                sendMessage("");
-            }
-        });
-    
-        sendBtn.addEventListener("click", function () {
-            const msg = input.value.trim();
-            if (!msg) return;
-            input.value = "";
-            sendMessage(msg);
-        });
-    
-        input.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                sendBtn.click();
-            }
-        });
-    })();
-    </script>
+    });
+
+    sendBtn.addEventListener("click", function () {
+        const msg = input.value.trim();
+        if (!msg) return;
+        input.value = "";
+        sendMessage(msg);
+    });
+
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            sendBtn.click();
+        }
+    });
+})();
+</script>
 
 {% endblock %}

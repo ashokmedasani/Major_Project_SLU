@@ -67,3 +67,30 @@ class RecommendationFilterForm(forms.Form):
             field.widget.attrs.update({
                 'class': 'form-control'
             })
+
+
+
+from django import forms
+from django.contrib.auth.models import User
+
+
+class DeveloperLoginForm(forms.Form):
+    username = forms.CharField(max_length=150)
+    password = forms.CharField(widget=forms.PasswordInput)
+
+
+class DeveloperRequestAccessForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput)
+    confirm_password = forms.CharField(widget=forms.PasswordInput)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "username", "email"]
+
+    def clean(self):
+        cleaned = super().clean()
+        pwd = cleaned.get("password")
+        cpwd = cleaned.get("confirm_password")
+        if pwd and cpwd and pwd != cpwd:
+            self.add_error("confirm_password", "Passwords do not match.")
+        return cleaned

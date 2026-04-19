@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: major-project-slu
+    env: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: major-project-db
+          property: connectionString
+      - key: RENDER
+        value: "true"
+
+databases:
+  - name: major-project-db
+    plan: free

@@ -41,92 +41,799 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .services.chatbot import get_initial_state, process_chat_message
 
+import platform
 
-# -----------------------
-# Developer Pages
-# -----------------------
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
+from .forms import BatchUploadForm, DeveloperLoginForm, DeveloperRequestAccessForm
+from .models import (
+    BatchFile,
+    BatchSyncLog,
+    DeveloperProfile,
+    HospitalSummary,
+    MasterEncounter,
+    MasterHospital,
+    MasterPatient,
+    ModelArtifact,
+    RawEncounter,
+    RawOrganization,
+    RawPatient,
+    UploadBatch,
+)
+
+# keep these imports only if these files really exist in your project
+from .services.decorators import developer_approved_required
+from .services.raw_loader_service import store_raw_batch
+from .services.rebuild_service import rebuild_all_master_summaries
+from .services.sync_service import sync_batch_to_master
+from .services.validation_service import validate_required_columns, validate_required_files
+from .services.zip_service import save_and_extract_zip
+
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+def normalize_text(value):
+    return (value or "").strip().lower()
+
+
+def get_or_create_master_patient_from_raw(raw_patient):
+    identity = {
+        "patient_id": raw_patient.patient_id,
+        "state": normalize_text(getattr(raw_patient, "state", "")),
+        "city": normalize_text(getattr(raw_patient, "city", "")),
+        "address": normalize_text(getattr(raw_patient, "address", "")),
+        "county": normalize_text(getattr(raw_patient, "county", "")),
+    }
+
+    patient, created = MasterPatient.objects.get_or_create(
+        patient_id=identity["patient_id"],
+        state=identity["state"],
+        city=identity["city"],
+        address=identity["address"],
+        county=identity["county"],
+        defaults={
+            "birthdate": raw_patient.birthdate,
+            "gender": raw_patient.gender,
+            "race": raw_patient.race,
+            "ethnicity": raw_patient.ethnicity,
+            "zip_code": raw_patient.zip_code,
+            "lat": raw_patient.lat,
+            "lon": raw_patient.lon,
+            "income": raw_patient.income,
+            "healthcare_expenses": raw_patient.healthcare_expenses,
+            "healthcare_coverage": raw_patient.healthcare_coverage,
+        },
+    )
+
+    if not created:
+        patient.birthdate = patient.birthdate or raw_patient.birthdate
+        patient.gender = patient.gender or raw_patient.gender
+        patient.race = patient.race or raw_patient.race
+        patient.ethnicity = patient.ethnicity or raw_patient.ethnicity
+        patient.zip_code = patient.zip_code or raw_patient.zip_code
+        patient.lat = patient.lat or raw_patient.lat
+        patient.lon = patient.lon or raw_patient.lon
+        patient.income = patient.income or raw_patient.income
+        patient.healthcare_expenses = patient.healthcare_expenses or raw_patient.healthcare_expenses
+        patient.healthcare_coverage = patient.healthcare_coverage or raw_patient.healthcare_coverage
+        patient.save()
+
+    return patient
+
+
+def keep_system_awake_start():
+    if platform.system().lower() == "windows":
+        try:
+            import ctypes
+            ES_CONTINUOUS = 0x80000000
+            ES_SYSTEM_REQUIRED = 0x00000001
+            ES_AWAYMODE_REQUIRED = 0x00000040
+            ctypes.windll.kernel32.SetThreadExecutionState(
+                ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED
+            )
+        except Exception:
+            pass
+
+
+def keep_system_awake_stop():
+    if platform.system().lower() == "windows":
+        try:
+            import ctypes
+            ES_CONTINUOUS = 0x80000000
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+        except Exception:
+            pass
+
+
+# =========================================================
+# DEVELOPER AUTH
+# =========================================================
+
+@require_http_methods(["GET", "POST"])
+def developer_login(request):
+    if request.user.is_authenticated:
+        profile = getattr(request.user, "developer_profile", None)
+        if request.user.is_superuser or (profile and profile.is_approved):
+            return redirect("developer_dashboard")
+
+    form = DeveloperLoginForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        user = authenticate(
+            request,
+            username=form.cleaned_data["username"],
+            password=form.cleaned_data["password"],
+        )
+
+        if user is None:
+            messages.error(request, "Invalid username or password.")
+        else:
+            profile = getattr(user, "developer_profile", None)
+            if user.is_superuser or (profile and profile.is_approved):
+                login(request, user)
+                messages.success(request, "Logged in successfully.")
+                return redirect("developer_dashboard")
+            messages.warning(request, "Your developer access is not approved yet.")
+
+    return render(request, "core/developer/login.html", {"form": form})
+
+
+@require_http_methods(["GET", "POST"])
+def developer_request_access(request):
+    form = DeveloperRequestAccessForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data["password"])
+            user.save()
+
+            DeveloperProfile.objects.get_or_create(
+                user=user,
+                defaults={"is_approved": False},
+            )
+
+        messages.success(request, "Access request submitted. Wait for approval.")
+        return redirect("developer_login")
+
+    return render(request, "core/developer/request_access.html", {"form": form})
+
+
+@login_required
+def developer_logout(request):
+    logout(request)
+    messages.success(request, "Logged out successfully.")
+    return redirect("developer_login")
+
+
+# =========================================================
+# DEVELOPER DASHBOARDS
+# =========================================================
+
+@login_required
+@developer_approved_required
 def developer_dashboard(request):
-    batches = UploadBatch.objects.order_by("-uploaded_at")[:10]
-    return render(request, "core/developer_dashboard.html", {"batches": batches})
+    context = {
+        "total_batches": UploadBatch.objects.exclude(status="deleted").count(),
+        "synced_batches": UploadBatch.objects.filter(status="synced").count(),
+        "unsynced_batches": UploadBatch.objects.filter(status="unsynced").count(),
+        "recycle_batches": UploadBatch.objects.filter(status="recycle_bin").count(),
+        "total_patients": MasterPatient.objects.count(),
+        "total_hospitals": MasterHospital.objects.count(),
+        "total_encounters": MasterEncounter.objects.count(),
+        "artifacts": ModelArtifact.objects.filter(is_active=True)[:10],
+        "recent_batches": UploadBatch.objects.exclude(status="deleted").order_by("-uploaded_at")[:10],
+    }
+    return render(request, "core/developer/dashboard.html", context)
 
 
+@login_required
+@developer_approved_required
+def developer_data_dashboard(request):
+    batches = UploadBatch.objects.exclude(status="deleted").order_by("-uploaded_at")
+    hospitals = HospitalSummary.objects.select_related("hospital").order_by("-weighted_score")[:20]
+
+    context = {
+        "batches": batches,
+        "hospitals": hospitals,
+    }
+    return render(request, "core/developer/data_dashboard.html", context)
+
+
+# =========================================================
+# BATCH UPLOAD / HISTORY / DETAIL
+# =========================================================
+
+@login_required
+@developer_approved_required
+@require_http_methods(["GET", "POST"])
 def batch_upload_view(request):
-    form = BatchUploadForm()
+    form = BatchUploadForm(request.POST or None, request.FILES or None)
 
-    if request.method == "POST":
-        form = BatchUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            zip_file = form.cleaned_data["zip_file"]
-            batch_name = form.cleaned_data.get("batch_name")
+    def format_seconds(seconds):
+        seconds = int(seconds or 0)
+        mins, secs = divmod(seconds, 60)
+        if mins > 0:
+            return f"{mins} min {secs} sec"
+        return f"{secs} sec"
 
+    def estimate_processing_seconds(zip_size_mb):
+        """
+        Simple estimate logic:
+        - base time
+        - plus additional time per MB
+        You can tune this later based on real batch history.
+        """
+        base_seconds = 20
+        per_mb_seconds = 4
+        estimated = base_seconds + int(zip_size_mb * per_mb_seconds)
+
+        if estimated < 20:
+            estimated = 20
+        return estimated
+
+    if request.method == "POST" and form.is_valid():
+        zip_file = form.cleaned_data["zip_file"]
+        batch_name = form.cleaned_data.get("batch_name") or zip_file.name
+
+        zip_size_mb = round(zip_file.size / (1024 * 1024), 2)
+        estimated_seconds = estimate_processing_seconds(zip_size_mb)
+
+        keep_system_awake_start()
+        batch = None
+
+        try:
             batch = UploadBatch.objects.create(
                 name=batch_name,
                 zip_file_name=zip_file.name,
-                status="uploaded"
+                status="uploaded",
+                is_active=True,
+                is_visible=True,
+                total_zip_size_mb=zip_size_mb,
+                estimated_processing_seconds=estimated_seconds,
+                processing_started_at=timezone.now(),
+            )
+
+            BatchSyncLog.objects.create(
+                batch=batch,
+                action="upload",
+                message=(
+                    f"ZIP uploaded. Extraction started. "
+                    f"Estimated processing time: {format_seconds(estimated_seconds)}. "
+                    f"ZIP size: {zip_size_mb} MB."
+                ),
             )
 
             extracted = save_and_extract_zip(zip_file, batch_name=batch_name)
             batch.extracted_path = str(extracted["batch_dir"])
-            batch.save()
+            batch.save(update_fields=["extracted_path"])
 
             file_validation = validate_required_files(extracted["batch_dir"])
             if not file_validation["is_valid"]:
                 batch.status = "failed"
-                batch.validation_message = f"Missing files: {file_validation['missing_files']}"
-                batch.save()
+                batch.validation_message = f"Missing files: {file_validation.get('missing_files', [])}"
+                batch.processing_completed_at = timezone.now()
+                if batch.processing_started_at and batch.processing_completed_at:
+                    batch.actual_processing_seconds = int(
+                        (batch.processing_completed_at - batch.processing_started_at).total_seconds()
+                    )
+                batch.save(update_fields=[
+                    "status",
+                    "validation_message",
+                    "processing_completed_at",
+                    "actual_processing_seconds",
+                ])
+
+                BatchSyncLog.objects.create(
+                    batch=batch,
+                    action="validation_failed",
+                    message=batch.validation_message,
+                )
                 messages.error(request, batch.validation_message)
                 return redirect("batch_history")
 
             column_validation = validate_required_columns(file_validation["found_files"])
             if not column_validation["is_valid"]:
                 batch.status = "failed"
-                batch.validation_message = "Required columns missing"
-                batch.save()
+                batch.validation_message = "Required columns missing."
+                batch.processing_completed_at = timezone.now()
+                if batch.processing_started_at and batch.processing_completed_at:
+                    batch.actual_processing_seconds = int(
+                        (batch.processing_completed_at - batch.processing_started_at).total_seconds()
+                    )
+                batch.save(update_fields=[
+                    "status",
+                    "validation_message",
+                    "processing_completed_at",
+                    "actual_processing_seconds",
+                ])
+
+                BatchSyncLog.objects.create(
+                    batch=batch,
+                    action="validation_failed",
+                    message="Required columns missing.",
+                )
                 messages.error(request, batch.validation_message)
                 return redirect("batch_history")
 
             store_raw_batch(batch, file_validation["found_files"])
-            batch.status = "validated"
-            batch.validation_message = "Batch validated and raw data stored"
-            batch.save()
 
-            messages.success(request, "Batch uploaded and validated successfully.")
+            batch.status = "validated"
+            batch.validation_message = "Batch validated and raw data stored."
+            batch.processing_completed_at = timezone.now()
+            if batch.processing_started_at and batch.processing_completed_at:
+                batch.actual_processing_seconds = int(
+                    (batch.processing_completed_at - batch.processing_started_at).total_seconds()
+                )
+
+            batch.save(update_fields=[
+                "status",
+                "validation_message",
+                "processing_completed_at",
+                "actual_processing_seconds",
+            ])
+
+            BatchSyncLog.objects.create(
+                batch=batch,
+                action="validated",
+                message=(
+                    "Batch validated successfully and raw data stored. "
+                    f"Actual processing time: {format_seconds(batch.actual_processing_seconds)}."
+                ),
+            )
+
+            messages.success(
+                request,
+                f"Batch uploaded and validated successfully. Estimated time was {format_seconds(estimated_seconds)}."
+            )
             return redirect("batch_detail", batch_id=batch.id)
 
-    return render(request, "core/batch_upload.html", {"form": form})
+        except Exception as e:
+            if batch:
+                batch.status = "failed"
+                batch.validation_message = str(e)
+                batch.processing_completed_at = timezone.now()
+                if batch.processing_started_at and batch.processing_completed_at:
+                    batch.actual_processing_seconds = int(
+                        (batch.processing_completed_at - batch.processing_started_at).total_seconds()
+                    )
+                batch.save(update_fields=[
+                    "status",
+                    "validation_message",
+                    "processing_completed_at",
+                    "actual_processing_seconds",
+                ])
+
+                BatchSyncLog.objects.create(
+                    batch=batch,
+                    action="upload_failed",
+                    message=str(e),
+                )
+            messages.error(request, f"Upload failed: {e}")
+
+        finally:
+            keep_system_awake_stop()
+
+    recent_avg_seconds = (
+        UploadBatch.objects.filter(actual_processing_seconds__gt=0)
+        .order_by("-uploaded_at")
+        .values_list("actual_processing_seconds", flat=True)[:5]
+    )
+
+    recent_avg_seconds = list(recent_avg_seconds)
+    avg_processing_seconds = int(sum(recent_avg_seconds) / len(recent_avg_seconds)) if recent_avg_seconds else 45
+
+    context = {
+        "form": form,
+        "avg_processing_seconds": avg_processing_seconds,
+    }
+    return render(request, "core/developer/batch_upload.html", context)
 
 
+@login_required
+@developer_approved_required
 def batch_history_view(request):
-    batches = UploadBatch.objects.order_by("-uploaded_at")
-    return render(request, "core/batch_history.html", {"batches": batches})
+    batches = UploadBatch.objects.exclude(status="deleted").order_by("-uploaded_at")
+    return render(request, "core/developer/batch_history.html", {"batches": batches})
 
 
+@login_required
+@developer_approved_required
 def batch_detail_view(request, batch_id):
     batch = get_object_or_404(UploadBatch, id=batch_id)
-    return render(request, "core/batch_detail.html", {"batch": batch})
+    context = {
+        "batch": batch,
+        "files": batch.files.all(),
+        "logs": batch.sync_logs.order_by("-created_at"),
+    }
+    return render(request, "core/developer/batch_detail.html", context)
 
 
+# =========================================================
+# BATCH ACTIONS
+# =========================================================
+
+@login_required
+@developer_approved_required
+@require_http_methods(["POST"])
 def sync_batch_view(request, batch_id):
     batch = get_object_or_404(UploadBatch, id=batch_id)
-    sync_batch_to_master(batch)
-    messages.success(request, "Batch synced into master data.")
+
+    if batch.status in ["recycle_bin", "deleted"]:
+        messages.error(request, "This batch cannot be synced.")
+        return redirect("batch_detail", batch_id=batch.id)
+
+    if batch.status == "synced":
+        messages.info(request, "This batch is already synced.")
+        return redirect("batch_detail", batch_id=batch.id)
+
+    keep_system_awake_start()
+    try:
+        sync_batch_to_master(batch)
+
+        batch.status = "synced"
+        batch.synced_at = timezone.now()
+        batch.is_active = True
+        batch.is_visible = True
+        batch.sync_message = "Batch synced into master data and published to user-facing layer."
+        batch.save(
+            update_fields=[
+                "status",
+                "synced_at",
+                "is_active",
+                "is_visible",
+                "sync_message",
+            ]
+        )
+
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="sync",
+            message="Batch synced to master/user layer.",
+        )
+
+        messages.success(request, "Batch synced successfully.")
+
+    except Exception as e:
+        batch.status = "failed"
+        batch.sync_message = str(e)
+        batch.save(update_fields=["status", "sync_message"])
+
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="sync_failed",
+            message=str(e),
+        )
+
+        messages.error(request, f"Sync failed: {e}")
+
+    finally:
+        keep_system_awake_stop()
+
     return redirect("batch_detail", batch_id=batch.id)
 
 
-def rollback_batch_view(request, batch_id):
+@login_required
+@developer_approved_required
+@require_http_methods(["POST"])
+def unsync_batch_view(request, batch_id):
     batch = get_object_or_404(UploadBatch, id=batch_id)
-    rollback_batch(batch, delete_storage=True, delete_raw_data=True)
-    messages.warning(request, "Batch rolled back and storage deleted.")
+
+    if batch.status != "synced":
+        messages.info(request, "This batch is not currently synced.")
+        return redirect("batch_detail", batch_id=batch.id)
+
+    keep_system_awake_start()
+    try:
+        MasterEncounter.objects.filter(source_batch=batch).delete()
+        rebuild_all_master_summaries()
+
+        batch.status = "unsynced"
+        batch.unsynced_at = timezone.now()
+        batch.sync_message = "Batch removed from user-facing layer. Raw data preserved."
+        batch.save(update_fields=["status", "unsynced_at", "sync_message"])
+
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="unsync",
+            message="Batch removed from user-facing layer. Raw data preserved.",
+        )
+
+        messages.success(request, "Batch unsynced. Raw data still exists in backend.")
+
+    except Exception as e:
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="unsync_failed",
+            message=str(e),
+        )
+        messages.error(request, f"Unsync failed: {e}")
+
+    finally:
+        keep_system_awake_stop()
+
+    return redirect("batch_detail", batch_id=batch.id)
+
+
+@login_required
+@developer_approved_required
+@require_http_methods(["POST"])
+def recycle_batch_view(request, batch_id):
+    batch = get_object_or_404(UploadBatch, id=batch_id)
+
+    batch.move_to_recycle_bin()
+
+    BatchSyncLog.objects.create(
+        batch=batch,
+        action="recycle",
+        message="Batch moved to recycle bin for 2 days.",
+    )
+
+    messages.success(request, "Batch moved to recycle bin.")
     return redirect("batch_history")
 
 
-def rebuild_master_view(request):
-    rebuild_all_master_summaries()
-    messages.success(request, "Master summaries rebuilt.")
-    return redirect("developer_dashboard")
+@login_required
+@developer_approved_required
+@require_http_methods(["POST"])
+def restore_batch_view(request, batch_id):
+    batch = get_object_or_404(UploadBatch, id=batch_id)
+
+    if batch.status == "recycle_bin":
+        batch.status = "unsynced"
+        batch.is_active = True
+        batch.is_visible = True
+        batch.moved_to_recycle_at = None
+        batch.purge_after = None
+        batch.save(
+            update_fields=[
+                "status",
+                "is_active",
+                "is_visible",
+                "moved_to_recycle_at",
+                "purge_after",
+            ]
+        )
+
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="restore",
+            message="Batch restored from recycle bin.",
+        )
+
+        messages.success(request, "Batch restored.")
+    else:
+        messages.info(request, "Only recycle bin batches can be restored.")
+
+    return redirect("batch_detail", batch_id=batch.id)
 
 
+@login_required
+@developer_approved_required
+@require_http_methods(["POST"])
+def delete_batch_view(request, batch_id):
+    batch = get_object_or_404(UploadBatch, id=batch_id)
+
+    keep_system_awake_start()
+    try:
+        MasterEncounter.objects.filter(source_batch=batch).delete()
+
+        RawPatient.objects.filter(batch=batch).delete()
+        RawEncounter.objects.filter(batch=batch).delete()
+        RawOrganization.objects.filter(batch=batch).delete()
+
+        BatchFile.objects.filter(batch=batch).delete()
+
+        batch.status = "deleted"
+        batch.is_active = False
+        batch.is_visible = False
+        batch.save(update_fields=["status", "is_active", "is_visible"])
+
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="delete",
+            message="Batch permanently deleted.",
+        )
+
+        rebuild_all_master_summaries()
+        messages.success(request, "Batch permanently deleted.")
+
+    except Exception as e:
+        BatchSyncLog.objects.create(
+            batch=batch,
+            action="delete_failed",
+            message=str(e),
+        )
+        messages.error(request, f"Delete failed: {e}")
+
+    finally:
+        keep_system_awake_stop()
+
+    return redirect("batch_history")
+
+
+
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+
+from core.models import MasterEncounter
+from core.services.forecasting import TimeSeriesForecaster, save_forecast_pickle
+
+
+@login_required
+def prediction_dashboard(request):
+    return render(request, "core/developer/prediction_dashboard.html")
+
+
+@login_required
+def train_all_models(request):
+    encounters = MasterEncounter.objects.all()
+
+    # REQUIRED METRICS (must train both models)
+    required_metrics = ["visits", "patients", "hospitals"]
+
+    # OPTIONAL METRICS (GB optional)
+    optional_metrics = ["avg_cost", "avg_coverage", "avg_oop"]
+
+    try:
+        # -------- REQUIRED --------
+        for metric in required_metrics:
+            for model_name in ["random_forest", "xgboost"]:
+                forecaster = TimeSeriesForecaster(
+                    encounters_qs=encounters,
+                    model_name=model_name
+                )
+
+                result = forecaster.run(metric=metric)
+
+                payload = {
+                    "train": result.train_monthly,
+                    "future": result.future_monthly,
+                    "metric": metric,
+                    "model": model_name
+                }
+
+                save_forecast_pickle(metric, model_name, payload)
+
+        # -------- OPTIONAL --------
+        for metric in optional_metrics:
+            # Random Forest always
+            forecaster = TimeSeriesForecaster(
+                encounters_qs=encounters,
+                model_name="random_forest"
+            )
+
+            result = forecaster.run(metric=metric)
+
+            payload = {
+                "train": result.train_monthly,
+                "future": result.future_monthly,
+                "metric": metric,
+                "model": "random_forest"
+            }
+
+            save_forecast_pickle(metric, "random_forest", payload)
+
+            # XGBoost optional
+            forecaster = TimeSeriesForecaster(
+                encounters_qs=encounters,
+                model_name="xgboost"
+            )
+
+            result = forecaster.run(metric=metric)
+
+            payload = {
+                "train": result.train_monthly,
+                "future": result.future_monthly,
+                "metric": metric,
+                "model": "xgboost"
+            }
+
+            save_forecast_pickle(metric, "xgboost", payload)
+
+        messages.success(request, "All models trained and PKL files created successfully!")
+
+    except Exception as e:
+        messages.error(request, f"Training failed: {str(e)}")
+
+    return redirect("prediction_dashboard")
+# -----------------------
+# Developer Pages
+# -----------------------
+
+# def developer_dashboard(request):
+#     batches = UploadBatch.objects.order_by("-uploaded_at")[:10]
+#     return render(request, "core/developer_dashboard.html", {"batches": batches})
+
+
+# def batch_upload_view(request):
+#     form = BatchUploadForm()
+
+#     if request.method == "POST":
+#         form = BatchUploadForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             zip_file = form.cleaned_data["zip_file"]
+#             batch_name = form.cleaned_data.get("batch_name")
+
+#             batch = UploadBatch.objects.create(
+#                 name=batch_name,
+#                 zip_file_name=zip_file.name,
+#                 status="uploaded"
+#             )
+
+#             extracted = save_and_extract_zip(zip_file, batch_name=batch_name)
+#             batch.extracted_path = str(extracted["batch_dir"])
+#             batch.save()
+
+#             file_validation = validate_required_files(extracted["batch_dir"])
+#             if not file_validation["is_valid"]:
+#                 batch.status = "failed"
+#                 batch.validation_message = f"Missing files: {file_validation['missing_files']}"
+#                 batch.save()
+#                 messages.error(request, batch.validation_message)
+#                 return redirect("batch_history")
+
+#             column_validation = validate_required_columns(file_validation["found_files"])
+#             if not column_validation["is_valid"]:
+#                 batch.status = "failed"
+#                 batch.validation_message = "Required columns missing"
+#                 batch.save()
+#                 messages.error(request, batch.validation_message)
+#                 return redirect("batch_history")
+
+#             store_raw_batch(batch, file_validation["found_files"])
+#             batch.status = "validated"
+#             batch.validation_message = "Batch validated and raw data stored"
+#             batch.save()
+
+#             messages.success(request, "Batch uploaded and validated successfully.")
+#             return redirect("batch_detail", batch_id=batch.id)
+
+#     return render(request, "core/batch_upload.html", {"form": form})
+
+
+# def batch_history_view(request):
+#     batches = UploadBatch.objects.order_by("-uploaded_at")
+#     return render(request, "core/batch_history.html", {"batches": batches})
+
+
+# def batch_detail_view(request, batch_id):
+#     batch = get_object_or_404(UploadBatch, id=batch_id)
+#     return render(request, "core/batch_detail.html", {"batch": batch})
+
+
+# def sync_batch_view(request, batch_id):
+#     batch = get_object_or_404(UploadBatch, id=batch_id)
+#     sync_batch_to_master(batch)
+#     messages.success(request, "Batch synced into master data.")
+#     return redirect("batch_detail", batch_id=batch.id)
+
+
+# def rollback_batch_view(request, batch_id):
+#     batch = get_object_or_404(UploadBatch, id=batch_id)
+#     rollback_batch(batch, delete_storage=True, delete_raw_data=True)
+#     messages.warning(request, "Batch rolled back and storage deleted.")
+#     return redirect("batch_history")
+
+
+# def rebuild_master_view(request):
+#     rebuild_all_master_summaries()
+#     messages.success(request, "Master summaries rebuilt.")
+#     return redirect("developer_dashboard")
+
+
+# -----------------------
+# User Pages
+# -----------------------
 # -----------------------
 # User Pages
 # -----------------------
@@ -134,11 +841,12 @@ def rebuild_master_view(request):
 import json
 from datetime import date
 
+from django.db.models import Avg, Count, F, Value
+from django.db.models.functions import Coalesce
 from django.shortcuts import render
-from django.db.models import Count, Avg
 
 from .forms import FilterForm
-from .models import MasterPatient, MasterEncounter, MasterHospital, RawPayer
+from .models import MasterEncounter, MasterHospital, MasterPatient, RawPayer
 
 
 def home_view(request):
@@ -193,8 +901,6 @@ def home_view(request):
             .order_by("city")
         )
 
-    payer_choices = sorted([(name, name) for name in payer_name_to_ids.keys()], key=lambda x: x[0])
-
     filters = FilterForm(
         request.GET or None,
         state_choices=state_choices,
@@ -219,38 +925,111 @@ def home_view(request):
             if city:
                 queryset = queryset.filter(hospital__city=city)
 
-
     # ---------------------------------
     # KPIs
+    # IMPORTANT:
+    # Count patient uniqueness using patient_id + patient.state + patient.city
+    # not only patient FK id
     # ---------------------------------
     total_hospitals = queryset.values("hospital").distinct().count()
-    total_patients = queryset.values("patient").distinct().count()
+
+    total_patients = (
+        queryset.filter(patient__isnull=False)
+        .annotate(
+            patient_identity_id=Coalesce(F("patient__patient_id"), Value("")),
+            patient_identity_state=Coalesce(F("patient__state"), Value("")),
+            patient_identity_city=Coalesce(F("patient__city"), Value("")),
+        )
+        .values(
+            "patient_identity_id",
+            "patient_identity_state",
+            "patient_identity_city",
+        )
+        .distinct()
+        .count()
+    )
+
     total_visits = queryset.count()
     avg_cost = queryset.aggregate(avg=Avg("total_claim_cost"))["avg"] or 0
     avg_coverage = queryset.aggregate(avg=Avg("payer_coverage"))["avg"] or 0
 
     # ---------------------------------
-    # Filtered patient ids
+    # Filtered patient identity set
+    # Use patient business identity, not only row id
     # ---------------------------------
-    patient_ids = queryset.values_list("patient_id", flat=True).distinct()
+    patient_identity_rows = list(
+        queryset.filter(patient__isnull=False)
+        .annotate(
+            patient_identity_id=Coalesce(F("patient__patient_id"), Value("")),
+            patient_identity_state=Coalesce(F("patient__state"), Value("")),
+            patient_identity_city=Coalesce(F("patient__city"), Value("")),
+        )
+        .values(
+            "patient_identity_id",
+            "patient_identity_state",
+            "patient_identity_city",
+        )
+        .distinct()
+    )
+
+    patient_identity_set = {
+        (
+            row["patient_identity_id"] or "",
+            row["patient_identity_state"] or "",
+            row["patient_identity_city"] or "",
+        )
+        for row in patient_identity_rows
+    }
+
+    filtered_patients = list(
+        MasterPatient.objects.all().values(
+            "id",
+            "patient_id",
+            "state",
+            "city",
+            "gender",
+            "birthdate",
+        )
+    )
+
+    filtered_patients = [
+        p for p in filtered_patients
+        if (
+            (p["patient_id"] or ""),
+            (p["state"] or ""),
+            (p["city"] or ""),
+        ) in patient_identity_set
+    ]
 
     # ---------------------------------
     # Gender chart
+    # Count unique patients by business identity
     # ---------------------------------
-    gender_qs = (
-        MasterPatient.objects.filter(id__in=patient_ids)
-        .values("gender")
-        .annotate(total=Count("id"))
-        .order_by("gender")
-    )
+    gender_counts = {}
+    seen_gender_keys = set()
+
+    for patient in filtered_patients:
+        identity_key = (
+            patient["patient_id"] or "",
+            patient["state"] or "",
+            patient["city"] or "",
+        )
+
+        if identity_key in seen_gender_keys:
+            continue
+
+        seen_gender_keys.add(identity_key)
+        gender = patient["gender"] or "Unknown"
+        gender_counts[gender] = gender_counts.get(gender, 0) + 1
 
     gender_chart = json.dumps({
-        "labels": [x["gender"] or "Unknown" for x in gender_qs],
-        "values": [x["total"] for x in gender_qs],
+        "labels": list(gender_counts.keys()),
+        "values": list(gender_counts.values()),
     })
 
-        # ---------------------------------
-    # Age group chart (ignore Unknown)
+    # ---------------------------------
+    # Age group chart
+    # Count unique patients by business identity
     # ---------------------------------
     age_buckets = {
         "0-18": 0,
@@ -261,10 +1040,21 @@ def home_view(request):
     }
 
     today = date.today()
+    seen_age_keys = set()
 
-    for patient in MasterPatient.objects.filter(id__in=patient_ids):
-        birthdate = patient.birthdate
+    for patient in filtered_patients:
+        identity_key = (
+            patient["patient_id"] or "",
+            patient["state"] or "",
+            patient["city"] or "",
+        )
 
+        if identity_key in seen_age_keys:
+            continue
+
+        seen_age_keys.add(identity_key)
+
+        birthdate = patient["birthdate"]
         if not birthdate:
             continue
 
@@ -291,24 +1081,46 @@ def home_view(request):
     # ---------------------------------
     # Top insurance payer chart
     # Aggregate by payer_id then convert to payer name
+    # Count unique patient identities per payer
     # ---------------------------------
-    payer_counts = (
+    payer_rows = list(
         queryset.exclude(payer_id__isnull=True)
         .exclude(payer_id__exact="")
-        .values("payer_id")
-        .annotate(total=Count("patient", distinct=True))
-        .order_by("-total")
+        .annotate(
+            patient_identity_id=Coalesce(F("patient__patient_id"), Value("")),
+            patient_identity_state=Coalesce(F("patient__state"), Value("")),
+            patient_identity_city=Coalesce(F("patient__city"), Value("")),
+        )
+        .values(
+            "payer_id",
+            "patient_identity_id",
+            "patient_identity_state",
+            "patient_identity_city",
+        )
     )
 
-    payer_totals_by_name = {}
-    for row in payer_counts:
-        pid = row["payer_id"]
-        total = row["total"]
-        pname = payer_id_to_name.get(pid, "Unknown")
+    payer_patient_sets = {}
 
-        if pname not in payer_totals_by_name:
-            payer_totals_by_name[pname] = 0
-        payer_totals_by_name[pname] += total
+    for row in payer_rows:
+        payer_id = row["payer_id"]
+        patient_key = (
+            row["patient_identity_id"] or "",
+            row["patient_identity_state"] or "",
+            row["patient_identity_city"] or "",
+        )
+
+        if not payer_id:
+            continue
+
+        if payer_id not in payer_patient_sets:
+            payer_patient_sets[payer_id] = set()
+
+        payer_patient_sets[payer_id].add(patient_key)
+
+    payer_totals_by_name = {}
+    for payer_id, patient_set in payer_patient_sets.items():
+        pname = payer_id_to_name.get(payer_id, "Unknown")
+        payer_totals_by_name[pname] = payer_totals_by_name.get(pname, 0) + len(patient_set)
 
     payer_top = sorted(
         payer_totals_by_name.items(),
@@ -321,6 +1133,31 @@ def home_view(request):
         "values": [x[1] for x in payer_top],
     })
 
+        # ---------------------------------
+    # State-wise hospital chart
+    # Count distinct hospitals by state
+    # ---------------------------------
+    state_hospital_qs = (
+        MasterHospital.objects.exclude(state__isnull=True)
+        .exclude(state__exact="")
+        .values("state")
+        .annotate(total_hospitals=Count("hospital_id", distinct=True))
+        .order_by("-total_hospitals", "state")
+    )
+
+    state_hospital_labels = [row["state"] for row in state_hospital_qs]
+    state_hospital_values = [row["total_hospitals"] for row in state_hospital_qs]
+
+    state_hospital_chart = {
+        "labels": state_hospital_labels,
+        "values": state_hospital_values,
+    }
+
+    state_hospital_chart = {
+    "labels": state_hospital_labels,
+    "values": state_hospital_values,
+    }
+
     context = {
         "filters": filters,
         "total_hospitals": total_hospitals,
@@ -331,10 +1168,12 @@ def home_view(request):
         "gender_chart": gender_chart,
         "age_chart": age_chart,
         "payer_chart": payer_chart,
+        "state_hospital_chart": json.dumps(state_hospital_chart),
     }
 
-    return render(request, "core/home.html", context)
 
+
+    return render(request, "core/home.html", context)
 # -----------------------
 # Recommendations Page
 # -----------------------
@@ -503,19 +1342,302 @@ def recommendations_view(request):
         'map_points_json': json.dumps(map_points),
     }
     return render(request, 'core/recommendations.html', context)
-
+# Hospital Detail
 # Hospital Detail
 
-from django.shortcuts import render, get_object_or_404
-from django.db.models import Count, Avg, Sum
-from django.db.models.functions import ExtractYear
 import json
+import os
+import pickle
+
 import pandas as pd
+from django.conf import settings
+from django.db.models import Avg, Count, Sum
+from django.db.models.functions import ExtractYear
+from django.shortcuts import get_object_or_404, render
 
-from .models import MasterHospital, MasterEncounter, RawPayer
-from .services.forecasting import TimeSeriesForecaster
+from .models import MasterEncounter, MasterHospital, RawPayer
 
 
+# ---------------------------------------------------
+# PKL HELPERS
+# ---------------------------------------------------
+def _pkl_file_path(metric, model_name="random_forest"):
+    return os.path.join(
+        settings.MEDIA_ROOT,
+        "pickles",
+        metric,
+        f"{metric}_{model_name}.pkl",
+    )
+
+
+def _safe_pickle_load(file_path):
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, "rb") as f:
+            return pickle.load(f)
+    except Exception:
+        return None
+
+
+def _coerce_month_column(df):
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    df = df.copy()
+
+    month_candidates = [
+        "month_start",
+        "month",
+        "date",
+        "ds",
+        "timestamp",
+        "period",
+    ]
+    value_candidates = [
+        "forecast_value",
+        "prediction",
+        "predicted",
+        "forecast",
+        "value",
+        "yhat",
+    ]
+
+    month_col = next((c for c in month_candidates if c in df.columns), None)
+    value_col = next((c for c in value_candidates if c in df.columns), None)
+
+    if month_col is None:
+        if len(df.columns) >= 1:
+            month_col = df.columns[0]
+
+    if value_col is None:
+        numeric_cols = [c for c in df.columns if c != month_col and pd.api.types.is_numeric_dtype(df[c])]
+        if numeric_cols:
+            value_col = numeric_cols[0]
+        elif len(df.columns) >= 2:
+            value_col = df.columns[1]
+
+    if month_col is None or value_col is None:
+        return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    out = df[[month_col, value_col]].copy()
+    out.columns = ["month_start", "forecast_value"]
+
+    out["month_start"] = pd.to_datetime(out["month_start"], errors="coerce", utc=True).dt.tz_localize(None)
+    out["forecast_value"] = pd.to_numeric(out["forecast_value"], errors="coerce")
+
+    out = out.dropna(subset=["month_start", "forecast_value"]).copy()
+    out["month_start"] = out["month_start"].dt.to_period("M").dt.to_timestamp()
+    out = out.sort_values("month_start").drop_duplicates(subset=["month_start"], keep="last")
+
+    return out.reset_index(drop=True)
+
+
+def _dict_month_value_to_df(data):
+    rows = []
+    for key, value in data.items():
+        try:
+            month_val = pd.to_datetime(str(key), errors="coerce")
+        except Exception:
+            month_val = pd.NaT
+
+        if pd.isna(month_val):
+            continue
+
+        try:
+            numeric_val = float(value)
+        except Exception:
+            continue
+
+        rows.append(
+            {
+                "month_start": pd.Timestamp(month_val).to_period("M").to_timestamp(),
+                "forecast_value": numeric_val,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    df = pd.DataFrame(rows).sort_values("month_start").drop_duplicates(subset=["month_start"], keep="last")
+    return df.reset_index(drop=True)
+
+
+def _filter_df_for_hospital(df, hospital):
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    work = df.copy()
+
+    id_cols = ["hospital_id", "org_id", "organization_id", "id"]
+    name_cols = ["hospital_name", "hospital", "name", "organization_name"]
+
+    for col in id_cols:
+        if col in work.columns:
+            try:
+                filtered = work[work[col].astype(str) == str(hospital.id)].copy()
+                if not filtered.empty:
+                    return filtered
+            except Exception:
+                pass
+
+    for col in name_cols:
+        if col in work.columns:
+            try:
+                filtered = work[work[col].astype(str).str.strip().str.lower() == hospital.name.strip().lower()].copy()
+                if not filtered.empty:
+                    return filtered
+            except Exception:
+                pass
+
+    return work
+
+
+def _extract_forecast_df_from_any(obj, hospital):
+    if obj is None:
+        return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    if isinstance(obj, pd.DataFrame):
+        filtered = _filter_df_for_hospital(obj, hospital)
+        return _coerce_month_column(filtered)
+
+    if isinstance(obj, dict):
+        for key in [hospital.id, str(hospital.id), hospital.name, str(hospital.name)]:
+            if key in obj:
+                return _extract_forecast_df_from_any(obj[key], hospital)
+
+        nested_keys = [
+            "future_monthly",
+            "predictions",
+            "forecast",
+            "forecasts",
+            "data",
+            "results",
+            "values",
+        ]
+        for key in nested_keys:
+            if key in obj:
+                candidate = _extract_forecast_df_from_any(obj[key], hospital)
+                if candidate is not None and not candidate.empty:
+                    return candidate
+
+        month_value_df = _dict_month_value_to_df(obj)
+        if not month_value_df.empty:
+            return month_value_df
+
+        for _, value in obj.items():
+            candidate = _extract_forecast_df_from_any(value, hospital)
+            if candidate is not None and not candidate.empty:
+                return candidate
+
+        return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    if isinstance(obj, list):
+        if not obj:
+            return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+        try:
+            df = pd.DataFrame(obj)
+            filtered = _filter_df_for_hospital(df, hospital)
+            return _coerce_month_column(filtered)
+        except Exception:
+            return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    return pd.DataFrame(columns=["month_start", "forecast_value"])
+
+
+def _load_metric_forecast(metric, hospital, model_name="random_forest"):
+    file_path = _pkl_file_path(metric, model_name=model_name)
+    raw_obj = _safe_pickle_load(file_path)
+    return _extract_forecast_df_from_any(raw_obj, hospital)
+
+
+def _shift_future_to_global_last_month(forecast_df, global_last_month):
+    if forecast_df is None or forecast_df.empty or global_last_month is None:
+        return forecast_df if forecast_df is not None else pd.DataFrame(columns=["month_start", "forecast_value"])
+
+    work = forecast_df.copy()
+    work["month_start"] = pd.to_datetime(work["month_start"], errors="coerce", utc=True).dt.tz_localize(None)
+    work = work.dropna(subset=["month_start"]).copy()
+
+    if work.empty:
+        return work
+
+    expected_first_month = pd.Timestamp(global_last_month) + pd.offsets.MonthBegin(1)
+    current_first_month = work["month_start"].min()
+
+    month_diff = (
+        (expected_first_month.year - current_first_month.year) * 12
+        + (expected_first_month.month - current_first_month.month)
+    )
+
+    work["month_start"] = work["month_start"] + pd.DateOffset(months=month_diff)
+    work = work.sort_values("month_start").drop_duplicates(subset=["month_start"], keep="last")
+
+    return work.reset_index(drop=True)
+
+
+def _history_df_from_monthly_group(monthly_grouped, value_col):
+    if monthly_grouped is None or monthly_grouped.empty or value_col not in monthly_grouped.columns:
+        return pd.DataFrame(columns=["month_start", "value"])
+
+    out = monthly_grouped[["month_start", value_col]].copy()
+    out.columns = ["month_start", "value"]
+    out["month_start"] = pd.to_datetime(out["month_start"], errors="coerce", utc=True).dt.tz_localize(None)
+    out["value"] = pd.to_numeric(out["value"], errors="coerce")
+    out = out.dropna(subset=["month_start", "value"]).copy()
+    out = out.sort_values("month_start").drop_duplicates(subset=["month_start"], keep="last")
+    return out.reset_index(drop=True)
+
+
+def _build_history_forecast_series(history_df, forecast_df):
+    history_map = {}
+    forecast_map = {}
+
+    if history_df is not None and not history_df.empty:
+        hist_df = history_df.copy()
+        hist_df["month_start"] = pd.to_datetime(hist_df["month_start"], errors="coerce", utc=True).dt.tz_localize(None)
+        hist_df = hist_df.dropna(subset=["month_start"])
+        for _, row in hist_df.iterrows():
+            history_map[pd.Timestamp(row["month_start"]).strftime("%Y-%m")] = round(float(row["value"]), 2)
+
+    if forecast_df is not None and not forecast_df.empty:
+        fc_df = forecast_df.copy()
+        fc_df["month_start"] = pd.to_datetime(fc_df["month_start"], errors="coerce", utc=True).dt.tz_localize(None)
+        fc_df = fc_df.dropna(subset=["month_start"])
+        for _, row in fc_df.iterrows():
+            forecast_map[pd.Timestamp(row["month_start"]).strftime("%Y-%m")] = round(float(row["forecast_value"]), 2)
+
+    all_labels = sorted(set(history_map.keys()) | set(forecast_map.keys()))
+    history_values = [history_map.get(label, None) for label in all_labels]
+    forecast_values = [forecast_map.get(label, None) for label in all_labels]
+
+    return all_labels, history_values, forecast_values
+
+
+def _get_hospital_global_last_month(hospital_obj):
+    global_df = pd.DataFrame(
+        list(
+            MasterEncounter.objects.filter(hospital=hospital_obj).values("start")
+        )
+    )
+
+    if global_df.empty:
+        return None
+
+    global_df["start"] = pd.to_datetime(global_df["start"], errors="coerce", utc=True).dt.tz_localize(None)
+    global_df = global_df.dropna(subset=["start"]).copy()
+
+    if global_df.empty:
+        return None
+
+    global_df["month_start"] = global_df["start"].dt.to_period("M").dt.to_timestamp()
+    return global_df["month_start"].max()
+
+
+# ---------------------------------------------------
+# MAIN VIEW
+# ---------------------------------------------------
 def hospital_detail_view(request, hospital_id):
     hospital = get_object_or_404(MasterHospital, pk=hospital_id)
 
@@ -605,7 +1727,6 @@ def hospital_detail_view(request, hospital_id):
     )
 
     yearly_labels = [str(row["year"]) for row in yearly_data if row["year"]]
-    yearly_visits = [row["visits"] or 0 for row in yearly_data if row["year"]]
     yearly_avg_cost = [round(row["avg_cost"] or 0, 2) for row in yearly_data if row["year"]]
     yearly_avg_coverage = [round(row["avg_coverage"] or 0, 2) for row in yearly_data if row["year"]]
     yearly_avg_oop = [round(row["avg_oop"] or 0, 2) for row in yearly_data if row["year"]]
@@ -627,10 +1748,10 @@ def hospital_detail_view(request, hospital_id):
     )
 
     monthly_labels = []
-    monthly_visits = []
     monthly_avg_cost = []
     monthly_avg_coverage = []
     monthly_avg_oop = []
+    monthly_grouped = pd.DataFrame()
 
     if not hist_monthly_df.empty:
         hist_monthly_df["start"] = pd.to_datetime(
@@ -646,7 +1767,6 @@ def hospital_detail_view(request, hospital_id):
         monthly_grouped = (
             hist_monthly_df.groupby("month_start")
             .agg(
-                visits=("month_start", "size"),
                 avg_cost=("total_claim_cost", "mean"),
                 avg_coverage=("payer_coverage", "mean"),
                 avg_oop=("out_of_pocket", "mean"),
@@ -656,105 +1776,41 @@ def hospital_detail_view(request, hospital_id):
         )
 
         monthly_labels = monthly_grouped["month_start"].dt.strftime("%Y-%m").tolist()
-        monthly_visits = monthly_grouped["visits"].round(2).tolist()
         monthly_avg_cost = monthly_grouped["avg_cost"].round(2).tolist()
         monthly_avg_coverage = monthly_grouped["avg_coverage"].round(2).tolist()
         monthly_avg_oop = monthly_grouped["avg_oop"].round(2).tolist()
 
     # ---------------------------------------------------
-    # STEP 3: FORECASTS
+    # STEP 3: LOAD FORECASTS FROM PKL (NO RETRAINING)
     # ---------------------------------------------------
-    forecaster_kwargs = {
-        "encounters_qs": encounters,
-        "years_back": 4,
-        "months_ahead": 24,
-        "model_name": "random_forest",
-        "ignore_recent_months": 1,
-    }
+    global_last_month = _get_hospital_global_last_month(hospital)
 
-    visits_forecast = TimeSeriesForecaster(**forecaster_kwargs).run(metric="visits")
-    cost_forecast = TimeSeriesForecaster(**forecaster_kwargs).run(metric="avg_cost")
-    coverage_forecast = TimeSeriesForecaster(**forecaster_kwargs).run(metric="avg_coverage")
-    oop_forecast = TimeSeriesForecaster(**forecaster_kwargs).run(metric="avg_oop")
+    cost_forecast_df = _load_metric_forecast("avg_cost", hospital, model_name="random_forest")
+    coverage_forecast_df = _load_metric_forecast("avg_coverage", hospital, model_name="random_forest")
+    oop_forecast_df = _load_metric_forecast("avg_oop", hospital, model_name="random_forest")
 
-    # Fix: use full hospital latest month, not filtered subset latest month
-    def get_hospital_global_last_month(hospital_obj):
-        global_df = pd.DataFrame(
-            list(
-                MasterEncounter.objects.filter(hospital=hospital_obj)
-                .values("start")
-            )
-        )
+    cost_forecast_df = _shift_future_to_global_last_month(cost_forecast_df, global_last_month)
+    coverage_forecast_df = _shift_future_to_global_last_month(coverage_forecast_df, global_last_month)
+    oop_forecast_df = _shift_future_to_global_last_month(oop_forecast_df, global_last_month)
 
-        if global_df.empty:
-            return None
+    if global_last_month is not None:
+        cost_forecast_df = cost_forecast_df[cost_forecast_df["month_start"] > global_last_month].copy() if not cost_forecast_df.empty else cost_forecast_df
+        coverage_forecast_df = coverage_forecast_df[coverage_forecast_df["month_start"] > global_last_month].copy() if not coverage_forecast_df.empty else coverage_forecast_df
+        oop_forecast_df = oop_forecast_df[oop_forecast_df["month_start"] > global_last_month].copy() if not oop_forecast_df.empty else oop_forecast_df
 
-        global_df["start"] = pd.to_datetime(
-            global_df["start"], errors="coerce", utc=True
-        ).dt.tz_localize(None)
-
-        global_df = global_df.dropna(subset=["start"]).copy()
-        if global_df.empty:
-            return None
-
-        global_df["month_start"] = global_df["start"].dt.to_period("M").dt.to_timestamp()
-        return global_df["month_start"].max()
-
-    global_last_month = get_hospital_global_last_month(hospital)
-
-    def shift_future_to_global_last_month(forecast_obj):
-        if (
-            global_last_month is None
-            or forecast_obj is None
-            or forecast_obj.future_monthly is None
-            or forecast_obj.future_monthly.empty
-        ):
-            return forecast_obj
-
-        forecast_obj.future_monthly = forecast_obj.future_monthly.copy()
-        forecast_obj.future_monthly["month_start"] = pd.to_datetime(
-            forecast_obj.future_monthly["month_start"], errors="coerce", utc=True
-        ).dt.tz_localize(None)
-
-        forecast_obj.future_monthly = forecast_obj.future_monthly.dropna(subset=["month_start"]).copy()
-        if forecast_obj.future_monthly.empty:
-            return forecast_obj
-
-        expected_first_month = global_last_month + pd.offsets.MonthBegin(1)
-        current_first_month = forecast_obj.future_monthly["month_start"].min()
-
-        month_diff = (
-            (expected_first_month.year - current_first_month.year) * 12
-            + (expected_first_month.month - current_first_month.month)
-        )
-
-        forecast_obj.future_monthly["month_start"] = (
-            forecast_obj.future_monthly["month_start"] + pd.DateOffset(months=month_diff)
-        )
-        return forecast_obj
-
-    visits_forecast = shift_future_to_global_last_month(visits_forecast)
-    cost_forecast = shift_future_to_global_last_month(cost_forecast)
-    coverage_forecast = shift_future_to_global_last_month(coverage_forecast)
-    oop_forecast = shift_future_to_global_last_month(oop_forecast)
-
-    predicted_next_visits = 0
     predicted_avg_spend_next_visit = 0
     predicted_avg_coverage_next_visit = 0
     predicted_avg_oop_next_visit = 0
     predicted_coverage_ratio_next_visit = 0
 
-    if not visits_forecast.future_monthly.empty:
-        predicted_next_visits = round(float(visits_forecast.future_monthly.iloc[0]["forecast_value"]), 2)
+    if cost_forecast_df is not None and not cost_forecast_df.empty:
+        predicted_avg_spend_next_visit = round(float(cost_forecast_df.iloc[0]["forecast_value"]), 2)
 
-    if not cost_forecast.future_monthly.empty:
-        predicted_avg_spend_next_visit = round(float(cost_forecast.future_monthly.iloc[0]["forecast_value"]), 2)
+    if coverage_forecast_df is not None and not coverage_forecast_df.empty:
+        predicted_avg_coverage_next_visit = round(float(coverage_forecast_df.iloc[0]["forecast_value"]), 2)
 
-    if not coverage_forecast.future_monthly.empty:
-        predicted_avg_coverage_next_visit = round(float(coverage_forecast.future_monthly.iloc[0]["forecast_value"]), 2)
-
-    if not oop_forecast.future_monthly.empty:
-        predicted_avg_oop_next_visit = round(float(oop_forecast.future_monthly.iloc[0]["forecast_value"]), 2)
+    if oop_forecast_df is not None and not oop_forecast_df.empty:
+        predicted_avg_oop_next_visit = round(float(oop_forecast_df.iloc[0]["forecast_value"]), 2)
 
     if predicted_avg_spend_next_visit > 0:
         predicted_coverage_ratio_next_visit = round(
@@ -762,14 +1818,14 @@ def hospital_detail_view(request, hospital_id):
         )
 
     # ---------------------------------------------------
-    # STEP 4: BUILD FINAL PREDICTION OUTPUTS FIRST
+    # STEP 4: BUILD FINAL PREDICTION OUTPUTS
     # ---------------------------------------------------
     next_3_months_rows = []
     future_lookup = {}
 
-    future_cost_df = cost_forecast.future_monthly.copy() if cost_forecast.future_monthly is not None else pd.DataFrame()
-    future_cov_df = coverage_forecast.future_monthly.copy() if coverage_forecast.future_monthly is not None else pd.DataFrame()
-    future_oop_df = oop_forecast.future_monthly.copy() if oop_forecast.future_monthly is not None else pd.DataFrame()
+    future_cost_df = cost_forecast_df.copy() if cost_forecast_df is not None else pd.DataFrame(columns=["month_start", "forecast_value"])
+    future_cov_df = coverage_forecast_df.copy() if coverage_forecast_df is not None else pd.DataFrame(columns=["month_start", "forecast_value"])
+    future_oop_df = oop_forecast_df.copy() if oop_forecast_df is not None else pd.DataFrame(columns=["month_start", "forecast_value"])
 
     if not future_cost_df.empty:
         future_cost_df["month_start"] = pd.to_datetime(future_cost_df["month_start"]).dt.tz_localize(None)
@@ -778,9 +1834,9 @@ def hospital_detail_view(request, hospital_id):
     if not future_oop_df.empty:
         future_oop_df["month_start"] = pd.to_datetime(future_oop_df["month_start"]).dt.tz_localize(None)
 
-    future_months = sorted(set(
-        future_cost_df["month_start"].dt.strftime("%Y-%m").tolist() if not future_cost_df.empty else []
-    ))
+    future_months = sorted(
+        set(future_cost_df["month_start"].dt.strftime("%Y-%m").tolist()) if not future_cost_df.empty else []
+    )
 
     for ym in future_months:
         cost_val = None
@@ -809,12 +1865,14 @@ def hospital_detail_view(request, hospital_id):
         }
 
     for ym in future_months[:3]:
-        next_3_months_rows.append({
-            "month": ym,
-            "total_claim_cost": future_lookup[ym]["total_claim_cost"],
-            "coverage_cost": future_lookup[ym]["coverage_cost"],
-            "out_of_pocket": future_lookup[ym]["out_of_pocket"],
-        })
+        next_3_months_rows.append(
+            {
+                "month": ym,
+                "total_claim_cost": future_lookup[ym]["total_claim_cost"],
+                "coverage_cost": future_lookup[ym]["coverage_cost"],
+                "out_of_pocket": future_lookup[ym]["out_of_pocket"],
+            }
+        )
 
     future_year_options = sorted(list({m.split("-")[0] for m in future_months}))
     future_month_options = [
@@ -833,62 +1891,35 @@ def hospital_detail_view(request, hospital_id):
     ]
 
     # ---------------------------------------------------
-    # STEP 5: GRAPH DATA AFTER STEP 4
+    # STEP 5: GRAPH DATA
     # ---------------------------------------------------
-    def build_history_forecast_series(history_df, forecast_df):
-        history_map = {}
-        forecast_map = {}
+    cost_history_df = _history_df_from_monthly_group(monthly_grouped, "avg_cost")
+    coverage_history_df = _history_df_from_monthly_group(monthly_grouped, "avg_coverage")
+    oop_history_df = _history_df_from_monthly_group(monthly_grouped, "avg_oop")
 
-        if history_df is not None and not history_df.empty:
-            hist_df = history_df.copy()
-            hist_df["month_start"] = pd.to_datetime(
-                hist_df["month_start"], errors="coerce", utc=True
-            ).dt.tz_localize(None)
-            hist_df = hist_df.dropna(subset=["month_start"])
-
-            for _, row in hist_df.iterrows():
-                history_map[pd.Timestamp(row["month_start"]).strftime("%Y-%m")] = round(float(row["value"]), 2)
-
-        if forecast_df is not None and not forecast_df.empty:
-            fc_df = forecast_df.copy()
-            fc_df["month_start"] = pd.to_datetime(
-                fc_df["month_start"], errors="coerce", utc=True
-            ).dt.tz_localize(None)
-            fc_df = fc_df.dropna(subset=["month_start"])
-
-            for _, row in fc_df.iterrows():
-                forecast_map[pd.Timestamp(row["month_start"]).strftime("%Y-%m")] = round(float(row["forecast_value"]), 2)
-
-        all_labels = sorted(set(history_map.keys()) | set(forecast_map.keys()))
-        history_values = [history_map.get(label, None) for label in all_labels]
-        forecast_values = [forecast_map.get(label, None) for label in all_labels]
-
-        return all_labels, history_values, forecast_values
-
-    visits_line_labels, visits_history_values, visits_forecast_values = build_history_forecast_series(
-        visits_forecast.train_monthly,
-        visits_forecast.future_monthly,
+    cost_line_labels, cost_history_values, cost_forecast_values = _build_history_forecast_series(
+        cost_history_df,
+        cost_forecast_df,
     )
 
-    cost_line_labels, cost_history_values, cost_forecast_values = build_history_forecast_series(
-        cost_forecast.train_monthly,
-        cost_forecast.future_monthly,
+    coverage_line_labels, coverage_history_values, coverage_forecast_values = _build_history_forecast_series(
+        coverage_history_df,
+        coverage_forecast_df,
     )
 
-    coverage_line_labels, coverage_history_values, coverage_forecast_values = build_history_forecast_series(
-        coverage_forecast.train_monthly,
-        coverage_forecast.future_monthly,
+    oop_line_labels, oop_history_values, oop_forecast_values = _build_history_forecast_series(
+        oop_history_df,
+        oop_forecast_df,
     )
 
-    oop_line_labels, oop_history_values, oop_forecast_values = build_history_forecast_series(
-        oop_forecast.train_monthly,
-        oop_forecast.future_monthly,
-    )
+    final_line_labels = cost_line_labels
+    if not final_line_labels:
+        final_line_labels = coverage_line_labels
+    if not final_line_labels:
+        final_line_labels = oop_line_labels
 
     line_chart_json = {
-        "labels": visits_line_labels,
-        "visits_history": visits_history_values,
-        "visits_forecast": visits_forecast_values,
+        "labels": final_line_labels,
         "cost_history": cost_history_values,
         "cost_forecast": cost_forecast_values,
         "coverage_history": coverage_history_values,
@@ -958,7 +1989,6 @@ def hospital_detail_view(request, hospital_id):
         "avg_oop": round(avg_oop, 2),
         "coverage_ratio": round(coverage_ratio, 2),
 
-        "predicted_next_visits": predicted_next_visits,
         "predicted_avg_spend_next_visit": predicted_avg_spend_next_visit,
         "predicted_avg_coverage_next_visit": predicted_avg_coverage_next_visit,
         "predicted_avg_oop_next_visit": predicted_avg_oop_next_visit,
@@ -984,13 +2014,11 @@ def hospital_detail_view(request, hospital_id):
         "financial_summary_values": json.dumps(financial_summary_values),
 
         "yearly_labels": json.dumps(yearly_labels),
-        "yearly_visits": json.dumps(yearly_visits),
         "yearly_avg_cost": json.dumps(yearly_avg_cost),
         "yearly_avg_coverage": json.dumps(yearly_avg_coverage),
         "yearly_avg_oop": json.dumps(yearly_avg_oop),
 
         "monthly_labels": json.dumps(monthly_labels),
-        "monthly_visits": json.dumps(monthly_visits),
         "monthly_avg_cost": json.dumps(monthly_avg_cost),
         "monthly_avg_coverage": json.dumps(monthly_avg_coverage),
         "monthly_avg_oop": json.dumps(monthly_avg_oop),
@@ -1460,18 +2488,19 @@ def delete_batch_data_view(request, batch_id):
     
 
 
-###Dashboard Views
-
 from django.shortcuts import render
 from django.db.models import Count, Avg, Case, When, Value, CharField, OuterRef, Subquery
 from django.db.models.functions import ExtractYear
 import plotly.express as px
 from plotly.offline import plot
 
-from .models import MasterPatient, MasterHospital, MasterEncounter, RawPayer
-from .services.forecasting import TimeSeriesForecaster
+from .models import MasterHospital, MasterEncounter, RawPayer
 
-# keep your US_STATE_ABBR dict here as-is
+import os
+import pickle
+from django.conf import settings
+import plotly.graph_objects as go
+import pandas as pd
 
 
 US_STATE_ABBR = {
@@ -1491,13 +2520,78 @@ US_STATE_ABBR = {
     "District of Columbia": "DC"
 }
 
-def dashboard_view(request):
+
+def load_prediction(metric, model):
+    file_path = os.path.join(
+        settings.MEDIA_ROOT,
+        "pickles",
+        metric,
+        f"{metric}_{model}.pkl"
+    )
+
+    if not os.path.exists(file_path):
+        return None
+
+    with open(file_path, "rb") as f:
+        return pickle.load(f)
+
+
+def _normalize_pkl_series(series_obj):
+    """
+    Supports:
+    1. dict like {"2024-01": 123, ...}
+    2. pandas DataFrame with month/value columns
+    """
+    if series_obj is None:
+        return pd.DataFrame(columns=["month_start", "plot_value"])
+
+    if isinstance(series_obj, dict):
+        rows = []
+        for k, v in series_obj.items():
+            try:
+                rows.append({
+                    "month_start": pd.to_datetime(k),
+                    "plot_value": float(v),
+                })
+            except Exception:
+                continue
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return pd.DataFrame(columns=["month_start", "plot_value"])
+        return df.sort_values("month_start").reset_index(drop=True)
+
+    if isinstance(series_obj, pd.DataFrame):
+        df = series_obj.copy()
+
+        if "month_start" not in df.columns:
+            if "date" in df.columns:
+                df["month_start"] = df["date"]
+            elif "month" in df.columns:
+                df["month_start"] = df["month"]
+
+        if "plot_value" not in df.columns:
+            if "value" in df.columns:
+                df["plot_value"] = df["value"]
+            elif "forecast_value" in df.columns:
+                df["plot_value"] = df["forecast_value"]
+
+        if "month_start" not in df.columns or "plot_value" not in df.columns:
+            return pd.DataFrame(columns=["month_start", "plot_value"])
+
+        df["month_start"] = pd.to_datetime(df["month_start"], errors="coerce")
+        df["plot_value"] = pd.to_numeric(df["plot_value"], errors="coerce")
+        df = df.dropna(subset=["month_start", "plot_value"]).copy()
+        return df.sort_values("month_start").reset_index(drop=True)
+
+    return pd.DataFrame(columns=["month_start", "plot_value"])
+
+
+def developer_data_dashboard(request):
     selected_state = request.GET.get("state", "").strip()
     selected_city = request.GET.get("city", "").strip()
     selected_year = request.GET.get("year", "").strip()
     selected_top_n = request.GET.get("top_n", "10").strip()
 
-    # internal predictive card filters
     pred_metric = request.GET.get("pred_metric", "visits").strip().lower()
     pred_model = request.GET.get("pred_model", "random_forest").strip().lower()
     pred_year = request.GET.get("pred_year", "").strip()
@@ -1519,7 +2613,7 @@ def dashboard_view(request):
     base_encounters = MasterEncounter.objects.select_related("hospital", "patient").all()
     hospitals = MasterHospital.objects.all()
 
-    # filter options for page-level filters
+    # filter options
     states = (
         MasterHospital.objects.exclude(state__isnull=True)
         .exclude(state__exact="")
@@ -1554,7 +2648,6 @@ def dashboard_view(request):
         encounters_for_forecast = encounters_for_forecast.filter(hospital__city=selected_city)
         hospitals = hospitals.filter(city=selected_city)
 
-    # page year filter affects only regular charts, not forecast training
     if selected_year:
         try:
             selected_year_int = int(selected_year)
@@ -1683,28 +2776,14 @@ def dashboard_view(request):
     else:
         chart_payers = None
 
-        # -----------------------------
-    # Predictive card data
+    # -----------------------------
+    # Predictive card data FROM PKL
     # -----------------------------
     metric_title_map = {
         "visits": "Hospital Visit Trend",
         "patients": "Patient Trend",
         "hospitals": "Hospital Count Trend",
     }
-
-    # ---------------------------------
-    # Graph 1: detailed monthly graph
-    # follows:
-    # top filters + pred_metric + pred_model + pred_year + pred_month
-    # ---------------------------------
-    forecaster = TimeSeriesForecaster(
-        encounters_qs=encounters_for_forecast,
-        years_back=4,
-        months_ahead=36,
-        model_name=pred_model,
-        ignore_recent_months=2,
-    )
-    forecast_result = forecaster.run(metric=pred_metric)
 
     chart_predictive = None
     chart_compare_monthly = None
@@ -1718,115 +2797,111 @@ def dashboard_view(request):
         ("9", "Sep"), ("10", "Oct"), ("11", "Nov"), ("12", "Dec"),
     ]
 
-    if forecast_result and not forecast_result.train_monthly.empty:
-        historical_df = forecast_result.train_monthly.copy()
-        historical_df["month_start"] = pd.to_datetime(historical_df["month_start"])
-        historical_df["plot_value"] = historical_df["value"]
-        historical_df["series_type"] = "Historical"
+    pkl_data = load_prediction(pred_metric, pred_model)
 
-        future_df = forecast_result.future_monthly.copy()
-        future_df["month_start"] = pd.to_datetime(future_df["month_start"])
-        future_df["plot_value"] = future_df["forecast_value"]
-        future_df["series_type"] = "Forecast"
+    if pkl_data:
+        historical_df = _normalize_pkl_series(pkl_data.get("train"))
+        future_df = _normalize_pkl_series(pkl_data.get("future"))
 
-        combined_df = pd.concat([
-            historical_df[["month_start", "plot_value", "series_type"]],
-            future_df[["month_start", "plot_value", "series_type"]],
-        ], ignore_index=True).sort_values("month_start")
+        if not historical_df.empty:
+            historical_df["series_type"] = "Historical"
+        if not future_df.empty:
+            future_df["series_type"] = "Forecast"
 
-        combined_df["year"] = combined_df["month_start"].dt.year
-        combined_df["month_num"] = combined_df["month_start"].dt.month
-        combined_df["month_name"] = combined_df["month_start"].dt.strftime("%b")
-        combined_df["month_order"] = combined_df["month_start"].dt.month
+        combined_df = pd.concat(
+            [historical_df, future_df],
+            ignore_index=True
+        ).sort_values("month_start") if (not historical_df.empty or not future_df.empty) else pd.DataFrame()
 
-        predictive_years = sorted(combined_df["year"].dropna().unique().tolist())
+        if not combined_df.empty:
+            combined_df["year"] = combined_df["month_start"].dt.year
+            combined_df["month_num"] = combined_df["month_start"].dt.month
+            combined_df["month_name"] = combined_df["month_start"].dt.strftime("%b")
 
-        if not pred_year and predictive_years:
-            pred_year = str(predictive_years[0])
+            predictive_years = sorted(combined_df["year"].dropna().unique().tolist())
 
-        chart_df = combined_df.copy()
+            if not pred_year and predictive_years:
+                pred_year = str(predictive_years[0])
 
-        if pred_year:
-            try:
-                pred_year_int = int(pred_year)
-                chart_df = chart_df[chart_df["year"] == pred_year_int].copy()
-            except ValueError:
-                pass
+            chart_df = combined_df.copy()
 
-        summary_df = chart_df.copy()
+            if pred_year:
+                try:
+                    pred_year_int = int(pred_year)
+                    chart_df = chart_df[chart_df["year"] == pred_year_int].copy()
+                except ValueError:
+                    pass
 
-        if pred_month:
-            try:
-                pred_month_int = int(pred_month)
-                summary_df = summary_df[summary_df["month_num"] == pred_month_int].copy()
-            except ValueError:
-                pred_month_int = None
-        else:
-            pred_month_int = None
+            summary_df = chart_df.copy()
 
-        # summary box
-        if not summary_df.empty:
-            selected_metric_title = metric_title_map[pred_metric].replace(" Trend", "")
-
-            if pred_month_int:
-                month_label = pd.Timestamp(year=2000, month=pred_month_int, day=1).strftime("%b")
-                last_row = summary_df.sort_values(["month_start", "series_type"]).iloc[-1]
-                value_type = "Predicted" if last_row["series_type"] == "Forecast" else "Actual"
-                prediction_summary_label = f"{value_type} {selected_metric_title} for {month_label} {int(last_row['year'])}"
-                prediction_summary_value = f"{last_row['plot_value']:.0f}"
+            if pred_month:
+                try:
+                    pred_month_int = int(pred_month)
+                    summary_df = summary_df[summary_df["month_num"] == pred_month_int].copy()
+                except ValueError:
+                    pred_month_int = None
             else:
-                forecast_exists = (summary_df["series_type"] == "Forecast").any()
-                value_type = "Predicted" if forecast_exists else "Actual"
-                total_value = summary_df["plot_value"].sum()
-                year_label = int(summary_df["year"].iloc[0]) if not summary_df.empty else ""
-                prediction_summary_label = f"Total {value_type} {selected_metric_title} for {year_label}"
-                prediction_summary_value = f"{total_value:.0f}"
+                pred_month_int = None
 
-        # Graph 1: selected year monthly chart
-        if not chart_df.empty:
-            chart_df = chart_df.sort_values(["month_start", "series_type"]).copy()
+            if not summary_df.empty:
+                selected_metric_title = metric_title_map[pred_metric].replace(" Trend", "")
 
-            fig = go.Figure()
+                if pred_month_int:
+                    month_label = pd.Timestamp(year=2000, month=pred_month_int, day=1).strftime("%b")
+                    last_row = summary_df.sort_values(["month_start", "series_type"]).iloc[-1]
+                    value_type = "Predicted" if last_row["series_type"] == "Forecast" else "Actual"
+                    prediction_summary_label = f"{value_type} {selected_metric_title} for {month_label} {int(last_row['year'])}"
+                    prediction_summary_value = f"{last_row['plot_value']:.0f}"
+                else:
+                    forecast_exists = (summary_df["series_type"] == "Forecast").any()
+                    value_type = "Predicted" if forecast_exists else "Actual"
+                    total_value = summary_df["plot_value"].sum()
+                    year_label = int(summary_df["year"].iloc[0]) if not summary_df.empty else ""
+                    prediction_summary_label = f"Total {value_type} {selected_metric_title} for {year_label}"
+                    prediction_summary_value = f"{total_value:.0f}"
 
-            hist_year_df = chart_df[chart_df["series_type"] == "Historical"].copy()
-            fcst_year_df = chart_df[chart_df["series_type"] == "Forecast"].copy()
+            if not chart_df.empty:
+                chart_df = chart_df.sort_values(["month_start", "series_type"]).copy()
 
-            if not hist_year_df.empty:
-                fig.add_trace(go.Scatter(
-                    x=hist_year_df["month_name"],
-                    y=hist_year_df["plot_value"],
-                    mode="lines+markers",
-                    name="Historical",
-                    line=dict(width=3),
-                    hovertemplate="Month=%{x}<br>Actual=%{y:.0f}<extra></extra>",
-                ))
+                fig = go.Figure()
 
-            if not fcst_year_df.empty:
-                bridge_x = []
-                bridge_y = []
+                hist_year_df = chart_df[chart_df["series_type"] == "Historical"].copy()
+                fcst_year_df = chart_df[chart_df["series_type"] == "Forecast"].copy()
 
                 if not hist_year_df.empty:
-                    bridge_x.append(hist_year_df["month_name"].iloc[-1])
-                    bridge_y.append(hist_year_df["plot_value"].iloc[-1])
+                    fig.add_trace(go.Scatter(
+                        x=hist_year_df["month_name"],
+                        y=hist_year_df["plot_value"],
+                        mode="lines+markers",
+                        name="Historical",
+                        line=dict(width=3),
+                        hovertemplate="Month=%{x}<br>Actual=%{y:.0f}<extra></extra>",
+                    ))
 
-                bridge_x.extend(list(fcst_year_df["month_name"]))
-                bridge_y.extend(list(fcst_year_df["plot_value"]))
+                if not fcst_year_df.empty:
+                    bridge_x = []
+                    bridge_y = []
 
-                fig.add_trace(go.Scatter(
-                    x=bridge_x,
-                    y=bridge_y,
-                    mode="lines+markers",
-                    name=forecast_result.model_used,
-                    line=dict(width=3, dash="dash"),
-                    hovertemplate="Month=%{x}<br>Forecast=%{y:.0f}<extra></extra>",
-                ))
+                    if not hist_year_df.empty:
+                        bridge_x.append(hist_year_df["month_name"].iloc[-1])
+                        bridge_y.append(hist_year_df["plot_value"].iloc[-1])
 
-            if forecast_result.partial_month_start is not None and pred_year:
-                try:
-                    forecast_start_year = pd.Timestamp(forecast_result.partial_month_start).year
-                    if int(pred_year) == forecast_start_year:
-                        forecast_start_month_name = pd.Timestamp(forecast_result.partial_month_start).strftime("%b")
+                    bridge_x.extend(list(fcst_year_df["month_name"]))
+                    bridge_y.extend(list(fcst_year_df["plot_value"]))
 
+                    fig.add_trace(go.Scatter(
+                        x=bridge_x,
+                        y=bridge_y,
+                        mode="lines+markers",
+                        name="Forecast",
+                        line=dict(width=3, dash="dash"),
+                        hovertemplate="Month=%{x}<br>Forecast=%{y:.0f}<extra></extra>",
+                    ))
+
+                if not future_df.empty:
+                    forecast_start_month_name = future_df["month_start"].iloc[0].strftime("%b")
+                    forecast_start_year = future_df["month_start"].iloc[0].year
+                    if pred_year and str(forecast_start_year) == str(pred_year):
                         fig.add_shape(
                             type="line",
                             x0=forecast_start_month_name,
@@ -1848,15 +2923,95 @@ def dashboard_view(request):
                             yshift=10,
                             font=dict(color="red"),
                         )
-                except Exception:
-                    pass
 
-            fig.update_layout(
-                title=f"{metric_title_map[pred_metric]} ({forecast_result.model_used})",
+                fig.update_layout(
+                    title=f"{metric_title_map[pred_metric]} ({pred_model.replace('_', ' ').title()})",
+                    height=560,
+                    margin=dict(l=30, r=30, t=70, b=50),
+                    xaxis_title="Month",
+                    yaxis_title=metric_title_map[pred_metric].replace(" Trend", ""),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="center",
+                        x=0.5
+                    )
+                )
+
+                fig.update_xaxes(
+                    categoryorder="array",
+                    categoryarray=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                )
+
+                chart_predictive = plot(fig, output_type="div", include_plotlyjs=False)
+
+    # -----------------------------
+    # Comparison graph from PKL
+    # -----------------------------
+    rf_data = load_prediction(pred_metric, "random_forest")
+    xgb_data = load_prediction(pred_metric, "xgboost")
+
+    if rf_data and xgb_data:
+        hist_compare_df = _normalize_pkl_series(rf_data.get("train"))
+        rf_future_df = _normalize_pkl_series(rf_data.get("future"))
+        xgb_future_df = _normalize_pkl_series(xgb_data.get("future"))
+
+        if not hist_compare_df.empty and (not rf_future_df.empty or not xgb_future_df.empty):
+            fig_compare = go.Figure()
+
+            fig_compare.add_trace(go.Scatter(
+                x=hist_compare_df["month_start"],
+                y=hist_compare_df["plot_value"],
+                mode="lines",
+                name="Historical Actual",
+                line=dict(width=3),
+                hovertemplate="Date=%{x|%b %Y}<br>Historical=%{y:.0f}<extra></extra>",
+            ))
+
+            rf_x = []
+            rf_y = []
+            if not hist_compare_df.empty:
+                rf_x.append(hist_compare_df["month_start"].iloc[-1])
+                rf_y.append(hist_compare_df["plot_value"].iloc[-1])
+            rf_x.extend(list(rf_future_df["month_start"]))
+            rf_y.extend(list(rf_future_df["plot_value"]))
+
+            if rf_x and rf_y:
+                fig_compare.add_trace(go.Scatter(
+                    x=rf_x,
+                    y=rf_y,
+                    mode="lines",
+                    name="Random Forest - Future",
+                    line=dict(width=3, dash="dash"),
+                    hovertemplate="Date=%{x|%b %Y}<br>Random Forest=%{y:.0f}<extra></extra>",
+                ))
+
+            xgb_x = []
+            xgb_y = []
+            if not hist_compare_df.empty:
+                xgb_x.append(hist_compare_df["month_start"].iloc[-1])
+                xgb_y.append(hist_compare_df["plot_value"].iloc[-1])
+            xgb_x.extend(list(xgb_future_df["month_start"]))
+            xgb_y.extend(list(xgb_future_df["plot_value"]))
+
+            if xgb_x and xgb_y:
+                fig_compare.add_trace(go.Scatter(
+                    x=xgb_x,
+                    y=xgb_y,
+                    mode="lines",
+                    name="XGBoost - Future",
+                    line=dict(width=3, dash="dot"),
+                    hovertemplate="Date=%{x|%b %Y}<br>XGBoost=%{y:.0f}<extra></extra>",
+                ))
+
+            fig_compare.update_layout(
+                title=f"{metric_title_map[pred_metric].replace(' Trend', '')}: Historical and Future Monthly Comparison",
                 height=560,
                 margin=dict(l=30, r=30, t=70, b=50),
-                xaxis_title="Month",
+                xaxis_title="Year",
                 yaxis_title=metric_title_map[pred_metric].replace(" Trend", ""),
+                hovermode="x unified",
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
@@ -1866,118 +3021,8 @@ def dashboard_view(request):
                 )
             )
 
-            fig.update_xaxes(
-                categoryorder="array",
-                categoryarray=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-            )
+            chart_compare_monthly = plot(fig_compare, output_type="div", include_plotlyjs=False)
 
-            chart_predictive = plot(fig, output_type="div", include_plotlyjs=False)
-
-    # ---------------------------------
-    # Graph 2: comparison monthly graph
-    # follows:
-    # top page filters + pred_metric only
-    # ignores pred_model + pred_year + pred_month
-    # ---------------------------------
-    rf_forecaster = TimeSeriesForecaster(
-        encounters_qs=encounters_for_forecast,
-        years_back=50,
-        months_ahead=36,
-        model_name="random_forest",
-        ignore_recent_months=2,
-    )
-    rf_result = rf_forecaster.run(metric=pred_metric)
-
-    xgb_forecaster = TimeSeriesForecaster(
-        encounters_qs=encounters_for_forecast,
-        years_back=50,
-        months_ahead=36,
-        model_name="xgboost",
-        ignore_recent_months=2,
-    )
-    xgb_result = xgb_forecaster.run(metric=pred_metric)
-
-    if (
-        rf_result and not rf_result.train_monthly.empty
-        and xgb_result and not xgb_result.train_monthly.empty
-    ):
-        hist_compare_df = rf_result.train_monthly.copy()
-        hist_compare_df["month_start"] = pd.to_datetime(hist_compare_df["month_start"])
-        hist_compare_df["plot_value"] = hist_compare_df["value"]
-
-        rf_future_df = rf_result.future_monthly.copy()
-        rf_future_df["month_start"] = pd.to_datetime(rf_future_df["month_start"])
-        rf_future_df["plot_value"] = rf_future_df["forecast_value"]
-
-        xgb_future_df = xgb_result.future_monthly.copy()
-        xgb_future_df["month_start"] = pd.to_datetime(xgb_future_df["month_start"])
-        xgb_future_df["plot_value"] = xgb_future_df["forecast_value"]
-
-        fig_compare = go.Figure()
-
-        # historical full monthly line
-        fig_compare.add_trace(go.Scatter(
-            x=hist_compare_df["month_start"],
-            y=hist_compare_df["plot_value"],
-            mode="lines",
-            name="Historical Actual",
-            line=dict(width=3),
-            hovertemplate="Date=%{x|%b %Y}<br>Historical=%{y:.0f}<extra></extra>",
-        ))
-
-        # RF future monthly line with bridge from last historical point
-        rf_x = []
-        rf_y = []
-        if not hist_compare_df.empty:
-            rf_x.append(hist_compare_df["month_start"].iloc[-1])
-            rf_y.append(hist_compare_df["plot_value"].iloc[-1])
-        rf_x.extend(list(rf_future_df["month_start"]))
-        rf_y.extend(list(rf_future_df["plot_value"]))
-
-        fig_compare.add_trace(go.Scatter(
-            x=rf_x,
-            y=rf_y,
-            mode="lines",
-            name="Random Forest - Future",
-            line=dict(width=3, dash="dash"),
-            hovertemplate="Date=%{x|%b %Y}<br>Random Forest=%{y:.0f}<extra></extra>",
-        ))
-
-        # XGB future monthly line with bridge from last historical point
-        xgb_x = []
-        xgb_y = []
-        if not hist_compare_df.empty:
-            xgb_x.append(hist_compare_df["month_start"].iloc[-1])
-            xgb_y.append(hist_compare_df["plot_value"].iloc[-1])
-        xgb_x.extend(list(xgb_future_df["month_start"]))
-        xgb_y.extend(list(xgb_future_df["plot_value"]))
-
-        fig_compare.add_trace(go.Scatter(
-            x=xgb_x,
-            y=xgb_y,
-            mode="lines",
-            name="XGBoost - Future",
-            line=dict(width=3, dash="dot"),
-            hovertemplate="Date=%{x|%b %Y}<br>XGBoost=%{y:.0f}<extra></extra>",
-        ))
-
-        fig_compare.update_layout(
-            title=f"{metric_title_map[pred_metric].replace(' Trend', '')}: Historical and Future Monthly Comparison",
-            height=560,
-            margin=dict(l=30, r=30, t=70, b=50),
-            xaxis_title="Year",
-            yaxis_title=metric_title_map[pred_metric].replace(" Trend", ""),
-            hovermode="x unified",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="center",
-                x=0.5
-            )
-        )
-
-        chart_compare_monthly = plot(fig_compare, output_type="div", include_plotlyjs=False)
     # -----------------------------
     # Top States by Visits
     # -----------------------------
@@ -2103,7 +3148,6 @@ def dashboard_view(request):
         "chart_usa_map": chart_usa_map,
         "chart_compare_monthly": chart_compare_monthly,
 
-        # predictive card context
         "pred_metric": pred_metric,
         "pred_model": pred_model,
         "pred_year": pred_year,
@@ -2114,9 +3158,7 @@ def dashboard_view(request):
         "prediction_summary_value": prediction_summary_value,
     }
 
-    return render(request, "core/dashboard.html", context)
-
-
+    return render(request, "core/developer/data_dashboard.html", context)
 
 
 ### ChatBOT

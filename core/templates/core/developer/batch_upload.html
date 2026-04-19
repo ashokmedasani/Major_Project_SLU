@@ -1,0 +1,195 @@
+{% extends "core/developer/base_developer.html" %}
+
+{% block content %}
+<style>
+    .upload-wrapper {
+        max-width: 980px;
+    }
+
+    .upload-top-note {
+        margin-bottom: 18px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: #f3f6fb;
+        border: 1px solid #dbe4f0;
+        color: #32465a;
+    }
+
+    .upload-top-note strong {
+        color: #1f3347;
+    }
+
+    .upload-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+    }
+
+    .upload-card {
+        background: #ffffff;
+        border: 1px solid #dde6f0;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .upload-card h3 {
+        margin-top: 0;
+        margin-bottom: 14px;
+        font-size: 20px;
+        color: #1f3347;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 10px 0;
+        border-bottom: 1px solid #edf2f7;
+        font-size: 14px;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        color: #5d6b7a;
+        font-weight: 600;
+    }
+
+    .info-value {
+        color: #1f3347;
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .estimate-box {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        color: #334155;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .estimate-highlight {
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 6px;
+    }
+
+    .btn-upload {
+        margin-top: 16px;
+    }
+
+    @media (max-width: 900px) {
+        .upload-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="upload-wrapper">
+    <div class="page-title">Upload Batch</div>
+
+    <div class="upload-top-note">
+        <strong>Processing time can be estimated.</strong><br>
+        This page shows an expected upload/validation duration based on recent batch history and file size.
+        Final runtime may vary depending on number of rows, extraction size, validation, raw insert, sync work, and pickle generation.
+    </div>
+
+    <div class="upload-grid">
+        <div class="upload-card">
+            <h3>Upload New Batch</h3>
+            <form method="post" enctype="multipart/form-data" id="batchUploadForm">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="btn btn-primary btn-upload" type="submit">Upload</button>
+            </form>
+        </div>
+
+        <div class="upload-card">
+            <h3>Expected Processing Info</h3>
+
+            <div class="info-row">
+                <div class="info-label">Recent average runtime</div>
+                <div class="info-value" id="recentAvgValue">{{ avg_processing_seconds }} sec</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">Selected ZIP size</div>
+                <div class="info-value" id="zipSizeValue">Not selected</div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-label">Estimated runtime</div>
+                <div class="info-value" id="estimatedRuntimeValue">-</div>
+            </div>
+
+            <div class="estimate-box">
+                Estimated total time
+                <div class="estimate-highlight" id="estimateBigText">Select a ZIP file</div>
+                <div style="margin-top:8px;">
+                    This is a predicted time only. Actual time depends on validation, extraction, raw storage, sync, summary rebuild, and pickle updates.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const fileInput = document.querySelector('input[type="file"]');
+        const zipSizeValue = document.getElementById("zipSizeValue");
+        const estimatedRuntimeValue = document.getElementById("estimatedRuntimeValue");
+        const estimateBigText = document.getElementById("estimateBigText");
+        const recentAvgSeconds = Number("{{ avg_processing_seconds|default:45 }}");
+
+        function formatSeconds(seconds) {
+            seconds = Math.round(seconds || 0);
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            if (mins > 0) {
+                return `${mins} min ${secs} sec`;
+            }
+            return `${secs} sec`;
+        }
+
+        function estimateBySize(sizeMB) {
+            const baseSeconds = 20;
+            const perMBSeconds = 4;
+            let estimate = baseSeconds + (sizeMB * perMBSeconds);
+
+            if (recentAvgSeconds > estimate) {
+                estimate = Math.round((estimate + recentAvgSeconds) / 2);
+            }
+
+            return Math.max(20, Math.round(estimate));
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener("change", function () {
+                const file = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+
+                if (!file) {
+                    zipSizeValue.textContent = "Not selected";
+                    estimatedRuntimeValue.textContent = "-";
+                    estimateBigText.textContent = "Select a ZIP file";
+                    return;
+                }
+
+                const sizeMB = file.size / (1024 * 1024);
+                const estimate = estimateBySize(sizeMB);
+
+                zipSizeValue.textContent = `${sizeMB.toFixed(2)} MB`;
+                estimatedRuntimeValue.textContent = formatSeconds(estimate);
+                estimateBigText.textContent = formatSeconds(estimate);
+            });
+        }
+    })();
+</script>
+{% endblock %}
