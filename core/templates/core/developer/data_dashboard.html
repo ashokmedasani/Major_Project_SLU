@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}
+{% extends "core/developer/base_developer.html" %}
 {% load static %}
 
 {% block content %}
@@ -7,14 +7,14 @@
 <style>
     .dashboard-page {
         padding: 24px;
-        background: #f5f9ff;
+        background: #f3f4f6;
         min-height: 100vh;
     }
 
     .dashboard-title {
         font-size: 2rem;
         font-weight: 700;
-        color: #214e97;
+        color: #2f3136;
         margin-bottom: 20px;
     }
 
@@ -25,7 +25,8 @@
     .summary-card {
         background: #ffffff;
         border-radius: 18px;
-        box-shadow: 0 8px 24px rgba(26, 71, 140, 0.08);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e5e7eb;
     }
 
     .filter-card,
@@ -45,7 +46,7 @@
         display: block;
         font-weight: 600;
         margin-bottom: 8px;
-        color: #23427a;
+        color: #4b5563;
     }
 
     .filter-group select,
@@ -53,8 +54,16 @@
         width: 100%;
         padding: 10px 12px;
         border-radius: 10px;
-        border: 1px solid #cfdcf2;
-        background: white;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        color: #1f2937;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+        outline: none;
+        border-color: #9ca3af;
+        box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.15);
     }
 
     .filter-actions {
@@ -76,13 +85,21 @@
     }
 
     .btn-primary {
-        background: #3f73e0;
+        background: #4b5563;
         color: white;
     }
 
+    .btn-primary:hover {
+        background: #374151;
+    }
+
     .btn-secondary {
-        background: #e9f0fb;
-        color: #23427a;
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .btn-secondary:hover {
+        background: #d1d5db;
     }
 
     .topn-grid {
@@ -102,15 +119,17 @@
         padding: 6px 12px;
         border-radius: 8px;
         text-decoration: none;
-        background: #eef4ff;
-        color: #214e97;
+        background: #e5e7eb;
+        color: #374151;
         font-weight: 600;
         font-size: 0.9rem;
+        border: 1px solid #d1d5db;
     }
 
     .topn-quick a.active {
-        background: #3f73e0;
+        background: #6b7280;
         color: white;
+        border-color: #6b7280;
     }
 
     .kpi-grid {
@@ -126,7 +145,7 @@
 
     .kpi-label {
         font-size: 0.95rem;
-        color: #4a6797;
+        color: #6b7280;
         margin-bottom: 8px;
         font-weight: 600;
     }
@@ -134,7 +153,7 @@
     .kpi-value {
         font-size: 1.8rem;
         font-weight: 700;
-        color: #1f4a94;
+        color: #111827;
     }
 
     .charts-grid {
@@ -150,18 +169,25 @@
 
     .section-card {
         padding: 18px;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .section-card > div,
+    .section-card > form,
+    .section-card > .empty-box {
+        max-width: 100%;
     }
 
     .section-title {
         font-size: 1.2rem;
         font-weight: 700;
-        color: #23427a;
+        color: #374151;
         margin-bottom: 14px;
     }
 
     .section-subtitle {
-        color: #6b7b95;
+        color: #6b7280;
         font-size: 0.95rem;
         margin-top: -6px;
     }
@@ -169,9 +195,10 @@
     .empty-box {
         padding: 30px;
         text-align: center;
-        color: #6b7b95;
-        background: #f8fbff;
+        color: #6b7280;
+        background: #f9fafb;
         border-radius: 12px;
+        border: 1px dashed #d1d5db;
     }
 
     .predictive-header {
@@ -194,12 +221,12 @@
         padding: 18px;
         margin-top: 16px;
         margin-bottom: 16px;
-        border: 1px solid #e8eef9;
+        border: 1px solid #e5e7eb;
     }
 
     .summary-title {
         font-size: 0.95rem;
-        color: #5b6f92;
+        color: #6b7280;
         font-weight: 600;
         margin-bottom: 8px;
     }
@@ -207,7 +234,7 @@
     .summary-value {
         font-size: 2rem;
         font-weight: 700;
-        color: #1f4a94;
+        color: #111827;
     }
 
     @media (max-width: 992px) {
@@ -234,7 +261,6 @@
 <div class="dashboard-page">
     <div class="dashboard-title">System Dashboard</div>
 
-    <!-- Row 1: Main Filters -->
     <div class="filter-card">
         <form method="get" id="dashboardFilterForm">
             <div class="filter-grid">
@@ -270,13 +296,12 @@
 
                 <div class="filter-actions">
                     <button type="submit" class="btn-primary">Apply Filters</button>
-                    <a href="{% url 'dashboard' %}" class="btn-secondary">Reset</a>
+                    <a href="{% url 'developer_data_dashboard' %}" class="btn-secondary">Reset</a>
                 </div>
             </div>
         </form>
     </div>
 
-    <!-- Row 2: Top N -->
     <div class="topn-card">
         <div class="topn-grid">
             <div class="filter-group">
@@ -289,26 +314,26 @@
                     min="1"
                     value="{{ selected_top_n }}"
                     placeholder="Enter number"
+                    onchange="document.getElementById('dashboardFilterForm').submit();"
                 >
             </div>
 
             <div>
-                <label style="display:block; font-weight:600; margin-bottom:8px; color:#23427a;">Quick Select</label>
+                <label style="display:block; font-weight:600; margin-bottom:8px; color:#4b5563;">Quick Select</label>
                 <div class="topn-quick">
-                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=5"
+                    <a href="?top_n=5{% if selected_state %}&state={{ selected_state }}{% endif %}{% if selected_city %}&city={{ selected_city }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}"
                        class="{% if selected_top_n == '5' %}active{% endif %}">5</a>
-                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=10"
+                    <a href="?top_n=10{% if selected_state %}&state={{ selected_state }}{% endif %}{% if selected_city %}&city={{ selected_city }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}"
                        class="{% if selected_top_n == '10' %}active{% endif %}">10</a>
-                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=15"
+                    <a href="?top_n=15{% if selected_state %}&state={{ selected_state }}{% endif %}{% if selected_city %}&city={{ selected_city }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}"
                        class="{% if selected_top_n == '15' %}active{% endif %}">15</a>
-                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n=20"
+                    <a href="?top_n=20{% if selected_state %}&state={{ selected_state }}{% endif %}{% if selected_city %}&city={{ selected_city }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}"
                        class="{% if selected_top_n == '20' %}active{% endif %}">20</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- KPI -->
     <div class="kpi-grid">
         <div class="kpi-card">
             <div class="kpi-label">Total Patients</div>
@@ -336,7 +361,6 @@
         </div>
     </div>
 
-    <!-- Age Group -->
     <div class="charts-grid">
         <div class="section-card chart-full">
             <div class="section-title">Visits by Age Group</div>
@@ -348,7 +372,6 @@
         </div>
     </div>
 
-    <!-- Row 1 Charts -->
     <div class="charts-grid">
         <div class="section-card">
             <div class="section-title">Top Cities by Visits</div>
@@ -369,7 +392,6 @@
         </div>
     </div>
 
-    <!-- Predictive Trend Card -->
     <div class="charts-grid">
         <div class="section-card chart-full">
             <div class="predictive-header">
@@ -427,7 +449,7 @@
 
                 <div class="filter-actions">
                     <button type="submit" class="btn-primary">Update</button>
-                    <a href="?state={{ selected_state }}&city={{ selected_city }}&year={{ selected_year }}&top_n={{ selected_top_n }}" class="btn-secondary">Reset Card</a>
+                    <a href="?{% if selected_state %}state={{ selected_state }}&{% endif %}{% if selected_city %}city={{ selected_city }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}top_n={{ selected_top_n }}" class="btn-secondary">Reset Card</a>
                 </div>
             </form>
 
@@ -449,13 +471,14 @@
             </div>
         </div>
     </div>
+
     <div class="charts-grid">
         <div class="section-card chart-full">
             <div class="section-title">Historical and Future Monthly Comparison</div>
             <div class="section-subtitle">
                 This graph follows the top page filters and the selected predictive metric only. It ignores predictive model, predictive year, and predictive month.
             </div>
-    
+
             <div style="margin-top:18px;">
                 {% if chart_compare_monthly %}
                     {{ chart_compare_monthly|safe }}
@@ -465,7 +488,7 @@
             </div>
         </div>
     </div>
-    <!-- States + Coverage -->
+
     <div class="charts-grid">
         <div class="section-card">
             <div class="section-title">Top States by Visits</div>
@@ -486,7 +509,6 @@
         </div>
     </div>
 
-    <!-- USA Map -->
     <div class="charts-grid">
         <div class="section-card chart-full">
             <div class="section-title">USA State Hotspot Map</div>

@@ -1,0 +1,25 @@
+{% extends "core/developer/base_developer.html" %}
+
+{% block content %}
+<div class="page-title">Batch History</div>
+
+<div class="card">
+    <table class="table">
+        <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+
+        {% for batch in batches %}
+        <tr>
+            <td>{{ batch.name }}</td>
+            <td>{{ batch.status }}</td>
+            <td>
+                <a href="{% url 'batch_detail' batch.id %}" class="btn btn-primary">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

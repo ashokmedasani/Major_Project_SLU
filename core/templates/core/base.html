@@ -1,18 +1,124 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Hospital Cost Analysis</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareFinder</title>
     <link rel="stylesheet" href="{% static 'core/css/styles.css' %}">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f8fc;
+            color: #1f2d3d;
+        }
+
+        .navbar {
+            background: #dcebff;
+            border-bottom: 1px solid #c7dbfb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 28px;
+        }
+
+        .nav-brand {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1d4f91;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Initial hidden parts */
+        #expandCare,
+        #expandFinder {
+            opacity: 0;
+            max-width: 0;
+            overflow: hidden;
+            display: inline-block;
+            transition: all 1.2s ease;
+        }
+
+        /* Animate expansion */
+        .show-text {
+            opacity: 1 !important;
+            max-width: 200px !important;
+        }
+
+        /* Optional smooth spacing */
+        .nav-brand span {
+            display: inline-block;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #1d4f91;
+            font-size: 15px;
+            font-weight: 600;
+            transition: 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: #0f3e7a;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 28px 24px 40px;
+            box-sizing: border-box;
+        }
+
+        .alert {
+            background: #fff4e5;
+            color: #9a6700;
+            border: 1px solid #ffd8a8;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px 18px;
+            }
+
+            .nav-links {
+                gap: 16px;
+                flex-wrap: wrap;
+            }
+
+            .nav-brand {
+                font-size: 24px;
+            }
+
+            .container {
+                padding: 20px 14px 32px;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">Hospital Cost Analysis</div>
+        <div class="nav-brand" id="brandLogo">
+            <span id="letterC">C</span><span id="expandCare">are</span>
+            <span id="letterF">F</span><span id="expandFinder">inder</span>
+        </div>
         <div class="nav-links">
             <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'recommendations' %}">Recommendations</a>
-            <a href="{% url 'developer_dashboard' %}">Developer</a>
-            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <a href="mailto:ashok.medasani@slu.edu">Contact Us</a>
         </div>
     </nav>
 
@@ -24,5 +130,20 @@
         {% endif %}
         {% block content %}{% endblock %}
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(() => {
+                // First expand "Care"
+                document.getElementById("expandCare").classList.add("show-text");
+        
+                // Then expand "Finder" with slight delay
+                setTimeout(() => {
+                    document.getElementById("expandFinder").classList.add("show-text");
+                }, 200);   // small delay (adjust 150–300 if needed)
+        
+            }, 1000);
+        });
+        </script>
 </body>
 </html>

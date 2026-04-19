@@ -1,0 +1,42 @@
+{% extends "core/developer/base_developer.html" %}
+
+{% block content %}
+<h3>Batch Detail</h3>
+
+<p>Status: {{ batch.status }}</p>
+
+<form method="post" action="{% url 'sync_batch' batch.id %}">
+    {% csrf_token %}
+    <button class="btn btn-success">Sync</button>
+</form>
+
+<form method="post" action="{% url 'unsync_batch' batch.id %}">
+    {% csrf_token %}
+    <button class="btn btn-warning">Unsync</button>
+</form>
+
+<form method="post" action="{% url 'recycle_batch' batch.id %}">
+    {% csrf_token %}
+    <button class="btn btn-secondary">Recycle</button>
+</form>
+
+<form method="post" action="{% url 'restore_batch' batch.id %}">
+    {% csrf_token %}
+    <button class="btn btn-info">Restore</button>
+</form>
+
+<form method="post" action="{% url 'delete_batch' batch.id %}">
+    {% csrf_token %}
+    <button class="btn btn-danger">Delete</button>
+</form>
+
+<hr>
+
+<h5>Logs</h5>
+<ul>
+    {% for log in logs %}
+        <li>{{ log.created_at }} - {{ log.message }}</li>
+    {% endfor %}
+</ul>
+
+{% endblock %}

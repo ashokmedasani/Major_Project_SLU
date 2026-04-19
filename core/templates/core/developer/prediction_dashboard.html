@@ -1,0 +1,15 @@
+{% extends "core/developer/base_developer.html" %}
+
+{% block content %}
+<div class="page-title">Prediction Dashboard</div>
+
+<div class="card">
+    <h4>Train Models</h4>
+    <p>Generate PKL files from master synced data.</p>
+
+    <form method="post" action="{% url 'train_models' %}">
+        {% csrf_token %}
+        <button class="btn btn-primary">Train Models</button>
+    </form>
+</div>
+{% endblock %}

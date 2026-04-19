@@ -1,0 +1,36 @@
+{% extends "core/developer/base_developer.html" %}
+
+{% block content %}
+<div class="page-title">Admin Dashboard</div>
+
+<div class="kpi-grid">
+    <div class="kpi-box">
+        <div class="kpi-title">Total Batches</div>
+        <div class="kpi-value">{{ total_batches }}</div>
+    </div>
+
+    <div class="kpi-box">
+        <div class="kpi-title">Synced</div>
+        <div class="kpi-value">{{ synced_batches }}</div>
+    </div>
+
+    <div class="kpi-box">
+        <div class="kpi-title">Patients</div>
+        <div class="kpi-value">{{ total_patients }}</div>
+    </div>
+
+    <div class="kpi-box">
+        <div class="kpi-title">Encounters</div>
+        <div class="kpi-value">{{ total_encounters }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <h4>Recent Batches</h4>
+    <ul>
+        {% for batch in recent_batches %}
+            <li>{{ batch.name }} - {{ batch.status }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

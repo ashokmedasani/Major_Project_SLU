@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Login</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(180deg, #f8f8f9 0%, #eef0f2 100%);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            color: #2d3137;
+        }
+        .wrap {
+            width: 100%;
+            max-width: 460px;
+            background: #fff;
+            border: 1px solid #d9dde2;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(130, 136, 145, 0.15);
+            padding: 34px;
+        }
+        h1 { margin-top: 0; }
+        p { color: #6e7681; }
+        label { display: block; margin: 14px 0 8px; font-weight: 600; }
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid #d7dbe0;
+            background: #fafbfc;
+        }
+        button {
+            width: 100%;
+            margin-top: 18px;
+            padding: 13px;
+            border-radius: 12px;
+            border: none;
+            background: #dfe3e8;
+            color: #2d3137;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .link {
+            display: inline-block;
+            margin-top: 16px;
+            color: #606770;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>Developer Login</h1>
+        <p>Only approved internal users can access this portal.</p>
+        <form method="post">
+            {% csrf_token %}
+            <label>Username</label>
+            {{ form.username }}
+            <label>Password</label>
+            {{ form.password }}
+            <button type="submit">Login</button>
+        </form>
+        <a class="link" href="{% url 'developer_request_access' %}">Request developer access</a>
+    </div>
+</body>
+</html>

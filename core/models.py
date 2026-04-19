@@ -1,13 +1,36 @@
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
+
+class DeveloperProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="developer_profile")
+    is_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_developers",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    company_name = models.CharField(max_length=150, blank=True, null=True)
+    role_name = models.CharField(max_length=150, blank=True, null=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} | approved={self.is_approved}"
 
 class UploadBatch(models.Model):
     STATUS_CHOICES = [
         ("uploaded", "Uploaded"),
         ("validated", "Validated"),
         ("synced", "Synced"),
+        ("unsynced", "Unsynced"),
         ("failed", "Failed"),
-        ("rolled_back", "Rolled Back"),
+        ("recycle_bin", "Recycle Bin"),
+        ("deleted", "Deleted"),
     ]
 
     name = models.CharField(max_length=150, blank=True, null=True)
@@ -16,8 +39,33 @@ class UploadBatch(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="uploaded")
     validation_message = models.TextField(blank=True, null=True)
     sync_message = models.TextField(blank=True, null=True)
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
     synced_at = models.DateTimeField(blank=True, null=True)
+    unsynced_at = models.DateTimeField(blank=True, null=True)
+    moved_to_recycle_at = models.DateTimeField(blank=True, null=True)
+    purge_after = models.DateTimeField(blank=True, null=True)
+
+    is_active = models.BooleanField(default=True)
+    is_visible = models.BooleanField(default=True)
+    sleep_protection_enabled = models.BooleanField(default=True)
+
+    processing_started_at = models.DateTimeField(blank=True, null=True)
+    processing_completed_at = models.DateTimeField(blank=True, null=True)
+    estimated_processing_seconds = models.IntegerField(default=0)
+    actual_processing_seconds = models.IntegerField(default=0)
+    total_zip_size_mb = models.FloatField(default=0)
+
+    def move_to_recycle_bin(self):
+        now = timezone.now()
+        self.status = "recycle_bin"
+        self.is_active = False
+        self.is_visible = False
+        self.moved_to_recycle_at = now
+        self.purge_after = now + timedelta(days=2)
+        self.save(update_fields=[
+            "status", "is_active", "is_visible", "moved_to_recycle_at", "purge_after"
+        ])
 
     def __str__(self):
         return f"Batch {self.id} - {self.zip_file_name}"
@@ -48,10 +96,12 @@ class BatchSyncLog(models.Model):
 class RawPatient(models.Model):
     batch = models.ForeignKey(UploadBatch, on_delete=models.CASCADE)
     patient_id = models.CharField(max_length=100, db_index=True)
-    birthdate = models.DateField(blank=True, null=True)   # changed
+    birthdate = models.DateField(blank=True, null=True)
     gender = models.CharField(max_length=10, blank=True, null=True)
     race = models.CharField(max_length=100, blank=True, null=True)
     ethnicity = models.CharField(max_length=100, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
+    county = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     zip_code = models.CharField(max_length=20, blank=True, null=True)
@@ -62,7 +112,10 @@ class RawPatient(models.Model):
     healthcare_coverage = models.FloatField(blank=True, null=True)
 
     class Meta:
-        indexes = [models.Index(fields=["patient_id"])]
+        indexes = [
+            models.Index(fields=["patient_id"]),
+            models.Index(fields=["patient_id", "state", "city"]),
+        ]
 
 
 class RawOrganization(models.Model):
@@ -206,11 +259,13 @@ class RawPayerTransition(models.Model):
 # ---------------------------
 
 class MasterPatient(models.Model):
-    patient_id = models.CharField(max_length=100, unique=True)
-    birthdate = models.DateField(blank=True, null=True)   # changed
+    patient_id = models.CharField(max_length=100, db_index=True)
+    birthdate = models.DateField(blank=True, null=True)
     gender = models.CharField(max_length=10, blank=True, null=True)
     race = models.CharField(max_length=100, blank=True, null=True)
     ethnicity = models.CharField(max_length=100, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
+    county = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     zip_code = models.CharField(max_length=20, blank=True, null=True)
@@ -219,6 +274,20 @@ class MasterPatient(models.Model):
     income = models.FloatField(blank=True, null=True)
     healthcare_expenses = models.FloatField(blank=True, null=True)
     healthcare_coverage = models.FloatField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["patient_id", "state", "city", "address", "county"],
+                name="uniq_master_patient_identity"
+            )
+        ]
+        indexes = [
+            models.Index(fields=["patient_id", "state", "city"]),
+        ]
+
+    def __str__(self):
+        return f"{self.patient_id} | {self.city}, {self.state}"
 
 
 class MasterHospital(models.Model):
@@ -241,7 +310,7 @@ class MasterEncounter(models.Model):
     payer_id = models.CharField(max_length=100, blank=True, null=True)
     start = models.DateTimeField(blank=True, null=True)
     stop = models.DateTimeField(blank=True, null=True)
-    age_at_visit = models.IntegerField(blank=True, null=True, db_index=True)  # added
+    age_at_visit = models.IntegerField(blank=True, null=True, db_index=True)
     encounter_class = models.CharField(max_length=100, blank=True, null=True)
     code = models.CharField(max_length=100, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
@@ -287,3 +356,27 @@ class HospitalMonthlySummary(models.Model):
 
     class Meta:
         unique_together = ("hospital", "year", "month")
+
+
+class ModelArtifact(models.Model):
+    METRIC_CHOICES = [
+        ("avg_cost", "Average Cost"),
+        ("avg_oop", "Average Out Of Pocket"),
+        ("avg_coverage", "Average Coverage"),
+        ("visits", "Visits"),
+        ("patients", "Patients"),
+        ("hospitals", "Hospitals"),
+    ]
+
+    metric = models.CharField(max_length=50, choices=METRIC_CHOICES)
+    model_name = models.CharField(max_length=50, default="random_forest")
+    file_path = models.CharField(max_length=500)
+    trained_from_months = models.IntegerField(default=36)
+    forecast_months = models.IntegerField(default=18)
+    source_note = models.CharField(max_length=255, default="master_data")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    replaced_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]

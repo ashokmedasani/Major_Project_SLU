@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Developer Portal</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .sidebar {
+            width: 240px;
+            height: 100vh;
+            position: fixed;
+            background: #f4f6fa;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+        }
+
+        .sidebar h5 {
+            margin-bottom: 20px;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            text-decoration: none;
+            color: #333;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .sidebar a:hover {
+            background: #e6ecf5;
+        }
+
+        /* 🔥 BIG SECTION HEADINGS */
+        .section-title {
+            margin-top: 20px;
+            margin-bottom: 6px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #444;
+        }
+
+        /* CONTENT AREA (IMPORTANT) */
+        .main-content {
+            margin-left: 260px;
+            padding: 20px;
+        }
+    body {
+        margin: 0;
+        font-family: 'Segoe UI', sans-serif;
+        background: #f5f7fb;
+    }
+
+    /* RIGHT SIDE */
+    .main-content {
+        margin-left: 260px;
+        padding: 25px;
+    }
+
+    /* PAGE TITLE */
+    .page-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: #2c3e50;
+    }
+
+    /* CARD */
+    .card {
+        background: white;
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+
+    /* KPI GRID */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+    }
+
+    .kpi-box {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    .kpi-title {
+        font-size: 13px;
+        color: #777;
+    }
+
+    .kpi-value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    /* TABLE */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th, .table td {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .table th {
+        text-align: left;
+        color: #555;
+    }
+
+    /* BUTTONS */
+    .btn {
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #3f73e0;
+        color: white;
+    }
+
+    .btn-danger {
+        background: #e74c3c;
+        color: white;
+    }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h5>Developer Portal</h5>
+
+        <!-- MAIN -->
+        <a href="{% url 'developer_dashboard' %}">Admin Dashboard</a>
+        <a href="{% url 'developer_data_dashboard' %}">Data Dashboard</a>
+
+        <!-- BATCH -->
+        <div class="section-title">Batch</div>
+        <a href="{% url 'batch_history' %}">Batch History</a>
+        <a href="{% url 'batch_upload' %}">Upload Batch</a>
+
+        <!-- PREDICTION -->
+        <div class="section-title">Prediction</div>
+        <a href="{% url 'prediction_dashboard' %}">Prediction Dashboard</a>
+
+        <!-- ACCOUNT -->
+        <div class="section-title">Account</div>
+        <a href="{% url 'developer_logout' %}">Logout</a>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+</html>
