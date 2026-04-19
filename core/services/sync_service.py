@@ -10,9 +10,15 @@ from core.models import (
 
 def sync_batch_to_master(batch):
     # -------------------------
+    # TEMP LIMIT FOR TESTING
+    # -------------------------
+    raw_patients = RawPatient.objects.filter(batch=batch)[:100]
+    raw_orgs = RawOrganization.objects.filter(batch=batch)[:100]
+    raw_encounters = RawEncounter.objects.filter(batch=batch)[:100]
+
+    # -------------------------
     # Patients
     # -------------------------
-    raw_patients = RawPatient.objects.filter(batch=batch)
     for row in raw_patients:
         MasterPatient.objects.update_or_create(
             patient_id=row.patient_id,
@@ -35,13 +41,12 @@ def sync_batch_to_master(batch):
     BatchSyncLog.objects.create(
         batch=batch,
         action="sync_patients",
-        message="Patients synced"
+        message="Patients synced (test mode: first 100 rows)"
     )
 
     # -------------------------
     # Hospitals
     # -------------------------
-    raw_orgs = RawOrganization.objects.filter(batch=batch)
     for row in raw_orgs:
         MasterHospital.objects.update_or_create(
             hospital_id=row.organization_id,
@@ -60,14 +65,12 @@ def sync_batch_to_master(batch):
     BatchSyncLog.objects.create(
         batch=batch,
         action="sync_hospitals",
-        message="Hospitals synced"
+        message="Hospitals synced (test mode: first 100 rows)"
     )
 
     # -------------------------
     # Encounters
     # -------------------------
-    raw_encounters = RawEncounter.objects.filter(batch=batch)
-
     for row in raw_encounters:
         patient = MasterPatient.objects.filter(patient_id=row.patient_id).first()
         hospital = MasterHospital.objects.filter(hospital_id=row.organization_id).first()
@@ -99,14 +102,14 @@ def sync_batch_to_master(batch):
     BatchSyncLog.objects.create(
         batch=batch,
         action="sync_encounters",
-        message="Encounters synced"
+        message="Encounters synced (test mode: first 100 rows)"
     )
 
     rebuild_hospital_summaries()
 
     batch.status = "synced"
     batch.synced_at = timezone.now()
-    batch.sync_message = "Batch synced successfully"
+    batch.sync_message = "Batch synced successfully (test mode: first 100 rows)"
     batch.save()
 
 
