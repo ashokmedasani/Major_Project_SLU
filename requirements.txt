@@ -9,3 +9,4 @@ numpy
 scikit-learn
 xgboost
 plotly
+python-dotenv
