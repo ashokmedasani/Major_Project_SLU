@@ -1,5 +1,7 @@
 🚀 CareFinder
+
 Find the Best Diabetes Hospital Near You
+
 📌 Overview
 
 CareFinder is a data-driven healthcare analytics web application designed to help users identify the best hospitals for Type 2 Diabetes care. The platform provides insights into hospital performance based on cost, insurance coverage, and patient visit trends, along with future predictions using machine learning models.
