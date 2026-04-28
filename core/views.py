@@ -706,19 +706,22 @@ from core.services.forecasting import TimeSeriesForecaster, save_forecast_pickle
 def prediction_dashboard(request):
     return render(request, "core/developer/prediction_dashboard.html")
 
+import os
+import pickle
+import json
+from django.conf import settings
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
 
 @login_required
 def train_all_models(request):
     encounters = MasterEncounter.objects.all()
 
-    # REQUIRED METRICS (must train both models)
     required_metrics = ["visits", "patients", "hospitals"]
-
-    # OPTIONAL METRICS (GB optional)
     optional_metrics = ["avg_cost", "avg_coverage", "avg_oop"]
 
     try:
-        # -------- REQUIRED --------
         for metric in required_metrics:
             for model_name in ["random_forest", "xgboost"]:
                 forecaster = TimeSeriesForecaster(
@@ -732,53 +735,123 @@ def train_all_models(request):
                     "train": result.train_monthly,
                     "future": result.future_monthly,
                     "metric": metric,
-                    "model": model_name
+                    "model": model_name,
+                    "model_used": result.model_used,
+                    "partial_month_start": result.partial_month_start,
+                    "evaluation": result.evaluation,
+                    "feature_columns": result.feature_columns,
+                    "trained_model": result.fitted_model,
                 }
 
                 save_forecast_pickle(metric, model_name, payload)
 
-        # -------- OPTIONAL --------
         for metric in optional_metrics:
-            # Random Forest always
-            forecaster = TimeSeriesForecaster(
-                encounters_qs=encounters,
-                model_name="random_forest"
-            )
+            for model_name in ["random_forest", "xgboost"]:
+                forecaster = TimeSeriesForecaster(
+                    encounters_qs=encounters,
+                    model_name=model_name
+                )
 
-            result = forecaster.run(metric=metric)
+                result = forecaster.run(metric=metric)
 
-            payload = {
-                "train": result.train_monthly,
-                "future": result.future_monthly,
-                "metric": metric,
-                "model": "random_forest"
-            }
+                payload = {
+                    "train": result.train_monthly,
+                    "future": result.future_monthly,
+                    "metric": metric,
+                    "model": model_name,
+                    "model_used": result.model_used,
+                    "partial_month_start": result.partial_month_start,
+                    "evaluation": result.evaluation,
+                    "feature_columns": result.feature_columns,
+                    "trained_model": result.fitted_model,
+                }
 
-            save_forecast_pickle(metric, "random_forest", payload)
+                save_forecast_pickle(metric, model_name, payload)
 
-            # XGBoost optional
-            forecaster = TimeSeriesForecaster(
-                encounters_qs=encounters,
-                model_name="xgboost"
-            )
-
-            result = forecaster.run(metric=metric)
-
-            payload = {
-                "train": result.train_monthly,
-                "future": result.future_monthly,
-                "metric": metric,
-                "model": "xgboost"
-            }
-
-            save_forecast_pickle(metric, "xgboost", payload)
-
-        messages.success(request, "All models trained and PKL files created successfully!")
+        messages.success(request, "All models trained and PKL files with validation results created successfully!")
 
     except Exception as e:
         messages.error(request, f"Training failed: {str(e)}")
 
     return redirect("prediction_dashboard")
+
+
+@login_required
+def pkl_result_view(request):
+    pickles_root = os.path.join(settings.MEDIA_ROOT, "pickles")
+
+    metrics_order = ["visits", "patients", "hospitals", "avg_cost", "avg_coverage", "avg_oop"]
+    model_order = ["random_forest", "xgboost"]
+
+    results = []
+
+    for metric in metrics_order:
+        metric_dir = os.path.join(pickles_root, metric)
+        if not os.path.isdir(metric_dir):
+            continue
+
+        for model_name in model_order:
+            file_name = f"{metric}_{model_name}.pkl"
+            file_path = os.path.join(metric_dir, file_name)
+
+            if not os.path.exists(file_path):
+                continue
+
+            try:
+                with open(file_path, "rb") as f:
+                    payload = pickle.load(f)
+
+                evaluation = payload.get("evaluation", {})
+                train_df = payload.get("train")
+                future_df = payload.get("future")
+
+                train_metrics = evaluation.get("train_metrics", {})
+                test_metrics = evaluation.get("test_metrics", {})
+
+                train_actual_vs_pred = evaluation.get("train_actual_vs_pred", [])
+                test_actual_vs_pred = evaluation.get("test_actual_vs_pred", [])
+
+                future_demo = []
+                if future_df is not None and not future_df.empty:
+                    temp_future = future_df.copy().head(6)
+                    future_demo = [
+                        {
+                            "month_start": pd.Timestamp(row["month_start"]).strftime("%Y-%m-%d"),
+                            "forecast_value": float(row["forecast_value"]),
+                        }
+                        for _, row in temp_future.iterrows()
+                    ]
+
+                results.append({
+                    "metric": metric,
+                    "model_name": model_name,
+                    "model_used": payload.get("model_used", model_name),
+                    "file_name": file_name,
+                    "train_metrics": train_metrics,
+                    "test_metrics": test_metrics,
+                    "dataset_summary": evaluation.get("dataset_summary", {}),
+                    "train_chart": json.dumps(train_actual_vs_pred),
+                    "test_chart": json.dumps(test_actual_vs_pred),
+                    "future_chart": json.dumps(future_demo),
+                    "has_results": True,
+                })
+
+            except Exception as e:
+                results.append({
+                    "metric": metric,
+                    "model_name": model_name,
+                    "model_used": model_name,
+                    "file_name": file_name,
+                    "error": str(e),
+                    "has_results": False,
+                })
+
+    context = {
+        "results": results
+    }
+    return render(request, "core/developer/pkl_result.html", context)
+
+    
 # -----------------------
 # Developer Pages
 # -----------------------
@@ -1192,6 +1265,7 @@ def home_view(request):
     }
 
     context = {
+        "page_name": "home",
         "filters": filters,
         "total_hospitals": total_hospitals,
         "total_patients": total_patients,
@@ -1361,6 +1435,7 @@ def recommendations_view(request):
             })
 
     context = {
+        "page_name": "recommendations",
         'filters_form': filters_form,
         'selected_filters': {
             'state': state,
@@ -2008,6 +2083,7 @@ def hospital_detail_view(request, hospital_id):
     ]
 
     context = {
+        "page_name": "hospital",
         "hospital": hospital,
 
         "selected_gender": gender,
@@ -2492,6 +2568,7 @@ def compare_view(request):
         })
 
     context = {
+        "page_name": "compare",
         "summary_cards": summary_cards,
         "selected_hospital_ids": hospital_ids,
         "payer_name": payer_name,
@@ -3195,94 +3272,124 @@ def developer_data_dashboard(request):
 
 
 ### ChatBOT
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+import json
 
-@csrf_exempt
+
 @require_POST
-def chatbot_message_view(request):
-    """
-    Global assistant:
-    asks state -> city -> gender -> insurance -> metric
-    and returns top hospitals
-    """
+def chatbot_ask(request):
     try:
-        data = json.loads(request.body.decode("utf-8"))
+        data = json.loads(request.body)
     except Exception:
         data = {}
 
-    user_message = (data.get("message") or "").strip()
-    session_key = "hospital_chatbot_state"
+    message = (data.get("message") or "").strip().lower()
+    page = (data.get("page") or "home").strip().lower()
 
-    state_data = request.session.get(session_key)
-    if not state_data:
-        state_data = get_initial_state(hospital_id=None)
+    linkedin = '<a href="https://www.linkedin.com/in/ashok-medasani/" target="_blank" rel="noopener noreferrer">Ashok Medasani on LinkedIn</a>'
 
-    if not user_message:
-        reply = "Which state are you looking for?"
-        request.session[session_key] = state_data
-        request.session.modified = True
-        return JsonResponse({
-            "ok": True,
-            "reply": reply,
-            "state": state_data,
-        })
+    page_answers = {
+        "home": (
+            "You are on the Home page. This page introduces CareFinder and helps users begin their hospital search journey. "
+            "Users can understand the purpose of the application, review key summary insights, and start exploring hospitals for Type 2 Diabetes care."
+        ),
+        "recommendations": (
+            "You are on the Recommendations page. This page helps users review hospitals ranked using historical visits, insurance coverage, "
+            "out-of-pocket cost, and recommendation score. It supports users in identifying suitable hospitals based on selected filters."
+        ),
+        "hospital": (
+            "You are on the Hospital Detail page. This page explains one selected hospital in detail, including visit history, cost breakdown, "
+            "insurance coverage, out-of-pocket amount, and future prediction insights."
+        ),
+        "compare": (
+            "You are on the Compare page. This page helps users compare multiple hospitals side by side using visits, cost, payer coverage, "
+            "out-of-pocket amount, financial summaries, and prediction trends."
+        ),
+    }
 
-    updated_state, reply = process_chat_message(
-        user_message=user_message,
-        state_data=state_data,
-        hospital_id=None,
-    )
+    faqs = {
+        "what is carefinder": (
+            "CareFinder is a data-driven healthcare decision-support prototype designed to help users identify suitable hospitals for "
+            "Type 2 Diabetes care using historical visits, cost insights, insurance coverage, and predictive analytics."
+        ),
+        "how does it work": (
+            "CareFinder works by allowing users to filter hospitals by location and preferences. It then uses healthcare data, cost metrics, "
+            "payer coverage, and prediction results to support hospital selection."
+        ),
+        "what data is used": (
+            "CareFinder uses synthetic healthcare data generated using Synthea. This means the project demonstrates realistic healthcare analytics "
+            "without exposing real patient information."
+        ),
+        "why type 2 diabetes": (
+            "Type 2 Diabetes was selected because it is a common chronic condition where patients may benefit from comparing hospitals based on "
+            "cost, access, coverage, and future care trends."
+        ),
+        "what is recommendation score": (
+            "The recommendation score helps rank hospitals using important indicators such as visit history, insurance coverage, and cost-related factors."
+        ),
+        "what is coverage": (
+            "Coverage means the portion of the healthcare cost paid by the insurance payer. Higher coverage can reduce the patient’s financial burden."
+        ),
+        "what is out of pocket": (
+            "Out-of-pocket cost is the amount a patient may need to pay after insurance coverage. Lower out-of-pocket cost usually means better affordability."
+        ),
+        "what is prediction": (
+            "Prediction insights estimate future trends using historical data. In CareFinder, predictions help users understand possible future visits, "
+            "cost, coverage, and out-of-pocket changes."
+        ),
+        "what is synthea": (
+            "Synthea is a synthetic patient data generator. CareFinder uses Synthea data to safely demonstrate healthcare analytics without using real patient data."
+        ),
+        "is this real patient data": (
+            "No. CareFinder does not use real patient data. The data is synthetic and generated for academic and prototype demonstration purposes."
+        ),
+        "what is compare": (
+            "The Compare page helps users evaluate multiple hospitals side by side using cost, coverage, visits, and prediction-related insights."
+        ),
+        "what are filters": (
+            "Filters help users narrow the hospital results by state, city, gender, and insurance payer so the recommendations are more relevant."
+        ),
+        "who created carefinder": (
+            "CareFinder was created as an academic prototype by Saint Louis University students under guidance, using synthetic healthcare data."
+        ),
+        "contact": (
+            f"For more information, please contact through LinkedIn: {linkedin}"
+        ),
+    }
 
-    request.session[session_key] = updated_state
-    request.session.modified = True
+    if "explain this page" in message or "this page" in message or "where am i" in message or "page" == message:
+        return JsonResponse({"answer": page_answers.get(page, page_answers["home"])})
+
+    for key, answer in faqs.items():
+        if key in message:
+            return JsonResponse({"answer": answer})
+
+    keyword_matches = [
+        ("carefinder", faqs["what is carefinder"]),
+        ("work", faqs["how does it work"]),
+        ("data", faqs["what data is used"]),
+        ("synthea", faqs["what is synthea"]),
+        ("diabetes", faqs["why type 2 diabetes"]),
+        ("score", faqs["what is recommendation score"]),
+        ("coverage", faqs["what is coverage"]),
+        ("insurance", faqs["what is coverage"]),
+        ("out-of-pocket", faqs["what is out of pocket"]),
+        ("out of pocket", faqs["what is out of pocket"]),
+        ("prediction", faqs["what is prediction"]),
+        ("forecast", faqs["what is prediction"]),
+        ("compare", faqs["what is compare"]),
+        ("filter", faqs["what are filters"]),
+        ("contact", faqs["contact"]),
+    ]
+
+    for keyword, answer in keyword_matches:
+        if keyword in message:
+            return JsonResponse({"answer": answer})
 
     return JsonResponse({
-        "ok": True,
-        "reply": reply,
-        "state": updated_state,
-    })
-
-
-@csrf_exempt
-@require_POST
-def hospital_detail_chatbot_message_view(request, hospital_id):
-    """
-    Hospital detail assistant:
-    asks only gender + insurance provider
-    then gives quick hospital summary
-    """
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        data = {}
-
-    user_message = (data.get("message") or "").strip()
-    session_key = f"hospital_detail_chatbot_state_{hospital_id}"
-
-    state_data = request.session.get(session_key)
-    if not state_data:
-        state_data = get_initial_state(hospital_id=hospital_id)
-
-    if not user_message:
-        reply = "For this hospital, do you want a gender filter? Type Male / Female / Other or 'skip'."
-        request.session[session_key] = state_data
-        request.session.modified = True
-        return JsonResponse({
-            "ok": True,
-            "reply": reply,
-            "state": state_data,
-        })
-
-    updated_state, reply = process_chat_message(
-        user_message=user_message,
-        state_data=state_data,
-        hospital_id=hospital_id,
-    )
-
-    request.session[session_key] = updated_state
-    request.session.modified = True
-
-    return JsonResponse({
-        "ok": True,
-        "reply": reply,
-        "state": updated_state,
+        "answer": (
+            "I’m sorry, I do not have verified information for that question. "
+            f"To avoid giving incorrect information, please contact {linkedin}."
+        )
     })

@@ -6,7 +6,6 @@
         max-width: 1420px;
         margin: 0 auto;
         padding: 28px 22px 60px;
-        background: linear-gradient(180deg, #eef4ff 0%, #f8fbff 100%);
         min-height: 100vh;
     }
 
@@ -23,49 +22,61 @@
         margin: 0;
         font-size: 42px;
         font-weight: 900;
-        color: #1d4698;
+        color: var(--brand-color);
         line-height: 1.08;
-        letter-spacing: 0.3px;
     }
 
     .hospital-location {
         margin-top: 10px;
-        font-size: 19px;
-        color: #5d7091;
+        font-size: 18px;
+        color: var(--text-muted);
         font-weight: 800;
         text-transform: uppercase;
+    }
+
+    .back-btn,
+    .btn-secondary {
+        background: var(--card-soft-bg);
+        color: var(--brand-color);
+        border: 1px solid var(--border-color);
+        text-decoration: none;
     }
 
     .back-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: #dbeafe;
-        color: #1e40af;
-        text-decoration: none;
         padding: 12px 18px;
         border-radius: 14px;
-        font-weight: 800;
+        font-weight: 900;
         transition: 0.2s ease;
     }
 
-    .back-btn:hover {
-        background: #c9defe;
+    .back-btn:hover,
+    .btn-secondary:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .filter-shell,
+    .hero-card,
+    .section-card,
+    .kpi-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-main);
     }
 
     .filter-shell {
-        background: #ffffff;
-        border: 1px solid #dde8fb;
         border-radius: 22px;
         padding: 22px;
-        box-shadow: 0 12px 28px rgba(31, 75, 153, 0.08);
         margin-bottom: 22px;
     }
 
     .filter-title {
         font-size: 20px;
-        font-weight: 800;
-        color: #183f7b;
+        font-weight: 900;
+        color: var(--brand-color);
         margin-bottom: 14px;
     }
 
@@ -76,22 +87,31 @@
         align-items: end;
     }
 
-    .filter-item label {
+    .filter-item label,
+    .chart-filter-group label {
         display: block;
         margin-bottom: 7px;
         font-size: 13px;
-        font-weight: 800;
-        color: #5f7494;
+        font-weight: 900;
+        color: var(--text-muted);
     }
 
-    .filter-item select {
+    .filter-item select,
+    .chart-filter-group select {
         width: 100%;
         height: 46px;
         border-radius: 12px;
-        border: 1px solid #d4e1f6;
+        border: 1px solid var(--input-border);
         padding: 0 12px;
-        background: #fff;
+        background: var(--input-bg);
+        color: var(--text-main);
         font-size: 14px;
+    }
+
+    .chart-filter-group select {
+        height: 40px;
+        min-width: 130px;
+        font-size: 13px;
     }
 
     .action-box {
@@ -105,9 +125,8 @@
         height: 46px;
         padding: 0 18px;
         border-radius: 12px;
-        font-weight: 800;
+        font-weight: 900;
         font-size: 14px;
-        border: none;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
@@ -116,38 +135,32 @@
     }
 
     .btn-primary {
-        background: linear-gradient(135deg, #2f64e7, #4d86ff);
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary));
         color: white;
-    }
-
-    .btn-secondary {
-        background: #edf4ff;
-        color: #1d4698;
-        border: 1px solid #d6e5fd;
+        border: none;
     }
 
     .hero-card,
     .section-card {
-        background: #ffffff;
         border-radius: 22px;
         padding: 22px;
-        box-shadow: 0 10px 28px rgba(31, 75, 153, 0.08);
-        border: 1px solid #e2ebf8;
         margin-bottom: 22px;
     }
 
     .hero-card h3,
     .section-card h3 {
         margin: 0 0 12px 0;
-        color: #173d78;
+        color: var(--brand-color);
         font-size: 23px;
         font-weight: 900;
     }
 
-    .hero-text {
-        color: #61779a;
-        font-size: 15px;
-        line-height: 1.8;
+    .hero-text,
+    .mini-note,
+    .kpi-sub {
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.7;
     }
 
     .kpi-grid {
@@ -158,31 +171,25 @@
     }
 
     .kpi-card {
-        background: #ffffff;
         border-radius: 20px;
         padding: 22px 20px;
-        box-shadow: 0 10px 24px rgba(31, 75, 153, 0.08);
-        border: 1px solid #e2ebf8;
+        border-top: 4px solid var(--primary);
     }
 
-    .kpi-label {
+    .kpi-label,
+    .future-result-label {
         font-size: 13px;
-        color: #6a7ea2;
-        font-weight: 800;
+        color: var(--text-muted);
+        font-weight: 900;
         margin-bottom: 10px;
     }
 
-    .kpi-value {
+    .kpi-value,
+    .future-result-value {
         font-size: 28px;
-        color: #163c7a;
+        color: var(--brand-color);
         font-weight: 900;
         line-height: 1.15;
-    }
-
-    .kpi-sub {
-        margin-top: 8px;
-        font-size: 13px;
-        color: #89a;
     }
 
     .prediction-table-wrap {
@@ -194,20 +201,22 @@
         width: 100%;
         border-collapse: collapse;
         min-width: 700px;
+        background: var(--card-bg);
     }
 
     .prediction-table th,
     .prediction-table td {
-        border-bottom: 1px solid #e8eef8;
+        border-bottom: 1px solid var(--border-color);
         padding: 14px 12px;
         text-align: left;
         font-size: 14px;
+        color: var(--text-main);
     }
 
     .prediction-table th {
-        background: #f4f8ff;
-        color: #1e468f;
-        font-weight: 800;
+        background: var(--card-soft-bg);
+        color: var(--brand-color);
+        font-weight: 900;
     }
 
     .future-select-grid {
@@ -226,23 +235,10 @@
     }
 
     .future-result-card {
-        background: #f8fbff;
-        border: 1px solid #e0ebfb;
+        background: var(--card-soft-bg);
+        border: 1px solid var(--border-color);
         border-radius: 18px;
         padding: 18px;
-    }
-
-    .future-result-label {
-        font-size: 13px;
-        font-weight: 800;
-        color: #6a7ea2;
-        margin-bottom: 8px;
-    }
-
-    .future-result-value {
-        font-size: 26px;
-        font-weight: 900;
-        color: #173d78;
     }
 
     .chart-grid {
@@ -280,30 +276,6 @@
         align-items: end;
     }
 
-    .chart-filter-group label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 12px;
-        font-weight: 800;
-        color: #647896;
-    }
-
-    .chart-filter-group select {
-        height: 40px;
-        min-width: 130px;
-        border-radius: 10px;
-        border: 1px solid #d4e1f6;
-        padding: 0 12px;
-        background: #fff;
-        font-size: 13px;
-    }
-
-    .mini-note {
-        color: #6b7ea2;
-        font-size: 13px;
-        margin-top: 8px;
-    }
-
     @media (max-width: 1200px) {
         .kpi-grid {
             grid-template-columns: repeat(3, 1fr);
@@ -337,10 +309,6 @@
         .chart-header-bar {
             flex-direction: column;
             align-items: stretch;
-        }
-
-        .chart-filter-controls {
-            width: 100%;
         }
     }
 </style>
@@ -547,40 +515,30 @@
             <div class="chart-canvas-wrap">
                 <canvas id="financialTrendChart"></canvas>
             </div>
-            <div class="mini-note">
-                Historical and predicted average cost, coverage, and out-of-pocket.
-            </div>
+            <div class="mini-note">Historical and predicted average cost, coverage, and out-of-pocket.</div>
         </div>
 
         <div class="section-card chart-half">
             <h3>Encounter Class Breakdown</h3>
-            <div class="chart-canvas-wrap">
-                <canvas id="encounterClassChart"></canvas>
-            </div>
+            <div class="chart-canvas-wrap"><canvas id="encounterClassChart"></canvas></div>
             <div class="mini-note">Encounter categories recorded for this hospital.</div>
         </div>
 
         <div class="section-card chart-half">
             <h3>Insurance Providers by Average Coverage</h3>
-            <div class="chart-canvas-wrap">
-                <canvas id="insuranceChart"></canvas>
-            </div>
+            <div class="chart-canvas-wrap"><canvas id="insuranceChart"></canvas></div>
             <div class="mini-note">Top 3 insurance providers by average coverage.</div>
         </div>
 
         <div class="section-card chart-half">
             <h3>Cost Split</h3>
-            <div class="chart-canvas-wrap">
-                <canvas id="costSplitChart"></canvas>
-            </div>
+            <div class="chart-canvas-wrap"><canvas id="costSplitChart"></canvas></div>
             <div class="mini-note">Average insurance coverage vs average out-of-pocket.</div>
         </div>
 
         <div class="section-card chart-half">
             <h3>Financial Summary Comparison</h3>
-            <div class="chart-canvas-wrap">
-                <canvas id="financialSummaryChart"></canvas>
-            </div>
+            <div class="chart-canvas-wrap"><canvas id="financialSummaryChart"></canvas></div>
             <div class="mini-note">Average cost, average coverage, and average out-of-pocket comparison.</div>
         </div>
     </div>
@@ -596,26 +554,17 @@
     const yearlyAvgCoverage = {{ yearly_avg_coverage|safe }};
     const yearlyAvgOOP = {{ yearly_avg_oop|safe }};
 
-    const monthlyLabels = {{ monthly_labels|safe }};
-    const monthlyAvgCost = {{ monthly_avg_cost|safe }};
-    const monthlyAvgCoverage = {{ monthly_avg_coverage|safe }};
-    const monthlyAvgOOP = {{ monthly_avg_oop|safe }};
-
     const classLabels = {{ class_labels|safe }};
     const classValues = {{ class_values|safe }};
-
     const insuranceLabels = {{ insurance_labels|safe }};
     const insuranceValues = {{ insurance_values|safe }};
-
     const costSplitLabels = {{ cost_split_labels|safe }};
     const costSplitValues = {{ cost_split_values|safe }};
-
     const financialSummaryLabels = {{ financial_summary_labels|safe }};
     const financialSummaryValues = {{ financial_summary_values|safe }};
 
     const futureYearSelect = document.getElementById('futureYearSelect');
     const futureMonthSelect = document.getElementById('futureMonthSelect');
-
     const futureCostValue = document.getElementById('futureCostValue');
     const futureCoverageValue = document.getElementById('futureCoverageValue');
     const futureOOPValue = document.getElementById('futureOOPValue');
@@ -624,12 +573,58 @@
     const financialYearFilter = document.getElementById('financialYearFilter');
     const financialMonthFilter = document.getElementById('financialMonthFilter');
 
-    let financialTrendChart;
+    let charts = [];
+
+    function isDarkMode() {
+        return document.documentElement.classList.contains("dark-mode");
+    }
+
+    function chartTextColor() {
+        return isDarkMode() ? "#eaf2ff" : "#14233b";
+    }
+
+    function chartGridColor() {
+        return isDarkMode() ? "#29486b" : "#dceaff";
+    }
+
+    function chartColors() {
+        return isDarkMode()
+            ? ["#38bdf8", "#5eead4", "#fbbf24", "#a78bfa", "#fb7185"]
+            : ["#2f55d4", "#2fb67c", "#e59a23", "#7c3aed", "#dc2626"];
+    }
+
+    function clearCharts() {
+        charts.forEach(chart => chart.destroy());
+        charts = [];
+    }
+
+    function commonOptions(extra = {}) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: "top",
+                    labels: { color: chartTextColor() }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: chartTextColor() },
+                    grid: { color: chartGridColor() }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: chartTextColor() },
+                    grid: { color: chartGridColor() }
+                }
+            },
+            ...extra
+        };
+    }
 
     function formatMoney(value) {
-        if (value === null || value === undefined || value === "") {
-            return "-";
-        }
+        if (value === null || value === undefined || value === "") return "-";
         return `$${Number(value).toFixed(2)}`;
     }
 
@@ -644,19 +639,11 @@
             return;
         }
 
-        const key = `${year}-${month}`;
-        const row = futureLookup[key];
+        const row = futureLookup[`${year}-${month}`];
 
-        if (!row) {
-            futureCostValue.textContent = "-";
-            futureCoverageValue.textContent = "-";
-            futureOOPValue.textContent = "-";
-            return;
-        }
-
-        futureCostValue.textContent = formatMoney(row.total_claim_cost);
-        futureCoverageValue.textContent = formatMoney(row.coverage_cost);
-        futureOOPValue.textContent = formatMoney(row.out_of_pocket);
+        futureCostValue.textContent = row ? formatMoney(row.total_claim_cost) : "-";
+        futureCoverageValue.textContent = row ? formatMoney(row.coverage_cost) : "-";
+        futureOOPValue.textContent = row ? formatMoney(row.out_of_pocket) : "-";
     }
 
     futureYearSelect.addEventListener("change", updateFutureVisitBox);
@@ -666,18 +653,14 @@
         const years = new Set();
         labels.forEach(label => {
             if (!label) return;
-            if (String(label).includes('-')) {
-                years.add(String(label).split('-')[0]);
-            } else {
-                years.add(String(label));
-            }
+            years.add(String(label).includes("-") ? String(label).split("-")[0] : String(label));
         });
         return Array.from(years).sort();
     }
 
     function populateYearDropdown(selectEl, labels) {
-        const years = extractYears(labels);
-        years.forEach(year => {
+        if (selectEl.options.length > 1) return;
+        extractYears(labels).forEach(year => {
             const opt = document.createElement('option');
             opt.value = year;
             opt.textContent = year;
@@ -713,13 +696,12 @@
             }
         });
 
-        return {
-            labels: filteredLabels,
-            series: filteredSeriesLists
-        };
+        return { labels: filteredLabels, series: filteredSeriesLists };
     }
 
     function buildFinancialChart() {
+        const colors = chartColors();
+
         const viewType = financialViewType.value;
         const yearValue = financialYearFilter.value;
         const monthValue = financialMonthFilter.value;
@@ -752,356 +734,115 @@
             viewType
         );
 
-        if (financialTrendChart) financialTrendChart.destroy();
-
-        financialTrendChart = new Chart(document.getElementById('financialTrendChart'), {
+        charts.push(new Chart(document.getElementById('financialTrendChart'), {
             type: 'line',
             data: {
                 labels: filtered.labels,
                 datasets: [
-                    {
-                        label: 'Historical Avg Cost',
-                        data: filtered.series[0],
-                        borderColor: '#2f55d4',
-                        backgroundColor: 'rgba(47,85,212,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false
-                    },
-                    {
-                        label: 'Predicted Avg Cost',
-                        data: filtered.series[1],
-                        borderColor: '#2f55d4',
-                        backgroundColor: 'rgba(47,85,212,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false,
-                        borderDash: [8, 6]
-                    },
-                    {
-                        label: 'Historical Avg Coverage',
-                        data: filtered.series[2],
-                        borderColor: '#2fb67c',
-                        backgroundColor: 'rgba(47,182,124,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false
-                    },
-                    {
-                        label: 'Predicted Avg Coverage',
-                        data: filtered.series[3],
-                        borderColor: '#2fb67c',
-                        backgroundColor: 'rgba(47,182,124,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false,
-                        borderDash: [8, 6]
-                    },
-                    {
-                        label: 'Historical Avg Out of Pocket',
-                        data: filtered.series[4],
-                        borderColor: '#e59a23',
-                        backgroundColor: 'rgba(229,154,35,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false
-                    },
-                    {
-                        label: 'Predicted Avg Out of Pocket',
-                        data: filtered.series[5],
-                        borderColor: '#e59a23',
-                        backgroundColor: 'rgba(229,154,35,0.08)',
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: false,
-                        borderDash: [8, 6]
-                    }
+                    { label: 'Historical Avg Cost', data: filtered.series[0], borderColor: colors[0], backgroundColor: colors[0], borderWidth: 3, tension: 0.35, fill: false },
+                    { label: 'Predicted Avg Cost', data: filtered.series[1], borderColor: colors[0], backgroundColor: colors[0], borderWidth: 3, tension: 0.35, fill: false, borderDash: [8, 6] },
+                    { label: 'Historical Avg Coverage', data: filtered.series[2], borderColor: colors[1], backgroundColor: colors[1], borderWidth: 3, tension: 0.35, fill: false },
+                    { label: 'Predicted Avg Coverage', data: filtered.series[3], borderColor: colors[1], backgroundColor: colors[1], borderWidth: 3, tension: 0.35, fill: false, borderDash: [8, 6] },
+                    { label: 'Historical Avg Out of Pocket', data: filtered.series[4], borderColor: colors[2], backgroundColor: colors[2], borderWidth: 3, tension: 0.35, fill: false },
+                    { label: 'Predicted Avg Out of Pocket', data: filtered.series[5], borderColor: colors[2], backgroundColor: colors[2], borderWidth: 3, tension: 0.35, fill: false, borderDash: [8, 6] }
                 ]
+            },
+            options: commonOptions()
+        }));
+    }
+
+    function renderCharts() {
+        clearCharts();
+
+        const colors = chartColors();
+
+        buildFinancialChart();
+
+        charts.push(new Chart(document.getElementById('encounterClassChart'), {
+            type: 'bar',
+            data: {
+                labels: classLabels,
+                datasets: [{
+                    label: 'Encounters',
+                    data: classValues,
+                    backgroundColor: colors[0],
+                    borderRadius: 8
+                }]
+            },
+            options: commonOptions({
+                indexAxis: 'y',
+                plugins: { legend: { display: false } }
+            })
+        }));
+
+        charts.push(new Chart(document.getElementById('insuranceChart'), {
+            type: 'bar',
+            data: {
+                labels: insuranceLabels,
+                datasets: [{
+                    label: 'Average Coverage',
+                    data: insuranceValues,
+                    backgroundColor: colors[1],
+                    borderRadius: 8
+                }]
+            },
+            options: commonOptions({
+                indexAxis: 'y',
+                plugins: { legend: { display: false } }
+            })
+        }));
+
+        charts.push(new Chart(document.getElementById('costSplitChart'), {
+            type: 'doughnut',
+            data: {
+                labels: costSplitLabels,
+                datasets: [{
+                    data: costSplitValues,
+                    backgroundColor: [colors[1], colors[2]],
+                    borderWidth: 0
+                }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
+                cutout: '62%',
                 plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    y: { beginAtZero: true }
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: chartTextColor() }
+                    }
                 }
             }
-        });
+        }));
+
+        charts.push(new Chart(document.getElementById('financialSummaryChart'), {
+            type: 'bar',
+            data: {
+                labels: financialSummaryLabels,
+                datasets: [{
+                    label: 'Average Amount',
+                    data: financialSummaryValues,
+                    backgroundColor: [colors[0], colors[1], colors[2]],
+                    borderRadius: 10
+                }]
+            },
+            options: commonOptions({
+                plugins: { legend: { display: false } }
+            })
+        }));
     }
 
     populateYearDropdown(financialYearFilter, lineChartData.labels);
 
-    financialViewType.addEventListener("change", buildFinancialChart);
-    financialYearFilter.addEventListener("change", buildFinancialChart);
-    financialMonthFilter.addEventListener("change", buildFinancialChart);
+    financialViewType.addEventListener("change", renderCharts);
+    financialYearFilter.addEventListener("change", renderCharts);
+    financialMonthFilter.addEventListener("change", renderCharts);
 
-    buildFinancialChart();
+    renderCharts();
 
-    new Chart(document.getElementById('encounterClassChart'), {
-        type: 'bar',
-        data: {
-            labels: classLabels,
-            datasets: [{
-                label: 'Encounters',
-                data: classValues,
-                backgroundColor: '#4f7de0',
-                borderRadius: 8
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                x: { beginAtZero: true }
-            }
-        }
+    window.addEventListener("carefinder-theme-change", function () {
+        setTimeout(renderCharts, 120);
     });
-
-    new Chart(document.getElementById('insuranceChart'), {
-        type: 'bar',
-        data: {
-            labels: insuranceLabels,
-            datasets: [{
-                label: 'Average Coverage',
-                data: insuranceValues,
-                backgroundColor: '#50c267',
-                borderRadius: 8
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                x: { beginAtZero: true }
-            }
-        }
-    });
-
-    new Chart(document.getElementById('costSplitChart'), {
-        type: 'doughnut',
-        data: {
-            labels: costSplitLabels,
-            datasets: [{
-                data: costSplitValues,
-                backgroundColor: ['#49b784', '#eba12b'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '62%',
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
-
-    new Chart(document.getElementById('financialSummaryChart'), {
-        type: 'bar',
-        data: {
-            labels: financialSummaryLabels,
-            datasets: [{
-                label: 'Average Amount',
-                data: financialSummaryValues,
-                backgroundColor: ['#2f55d4', '#2fb67c', '#e59a23'],
-                borderRadius: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
-    });
-</script>
-
-<style>
-    .chatbot-fab {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        border: none;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #fff;
-        font-size: 24px;
-        cursor: pointer;
-        box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-        z-index: 9999;
-    }
-    .chatbot-box {
-        position: fixed;
-        right: 24px;
-        bottom: 96px;
-        width: 380px;
-        max-width: calc(100vw - 32px);
-        height: 540px;
-        background: #fff;
-        border-radius: 18px;
-        box-shadow: 0 18px 40px rgba(0,0,0,0.18);
-        overflow: hidden;
-        display: none;
-        flex-direction: column;
-        z-index: 9999;
-        border: 1px solid #e5e7eb;
-    }
-    .chatbot-header {
-        background: #1d4ed8;
-        color: #fff;
-        padding: 14px 16px;
-        font-weight: 700;
-        font-size: 16px;
-    }
-    .chatbot-body {
-        flex: 1;
-        padding: 14px;
-        overflow-y: auto;
-        background: #f8fafc;
-    }
-    .chat-row {
-        margin-bottom: 12px;
-        display: flex;
-    }
-    .chat-row.user {
-        justify-content: flex-end;
-    }
-    .chat-bubble {
-        max-width: 82%;
-        padding: 10px 12px;
-        border-radius: 14px;
-        font-size: 14px;
-        line-height: 1.5;
-        white-space: pre-line;
-    }
-    .chat-row.bot .chat-bubble {
-        background: #e0ecff;
-        color: #0f172a;
-    }
-    .chat-row.user .chat-bubble {
-        background: #1d4ed8;
-        color: #fff;
-    }
-    .chatbot-footer {
-        border-top: 1px solid #e5e7eb;
-        display: flex;
-        gap: 8px;
-        padding: 10px;
-        background: #fff;
-    }
-    .chatbot-input {
-        flex: 1;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
-        padding: 10px 12px;
-        outline: none;
-    }
-    .chatbot-send {
-        border: none;
-        background: #1d4ed8;
-        color: #fff;
-        border-radius: 10px;
-        padding: 10px 14px;
-        cursor: pointer;
-        font-weight: 600;
-    }
-</style>
-
-<button class="chatbot-fab" id="chatbotFab">💬</button>
-
-<div class="chatbot-box" id="chatbotBox">
-    <div class="chatbot-header">Hospital Detail Assistant</div>
-    <div class="chatbot-body" id="chatbotBody"></div>
-    <div class="chatbot-footer">
-        <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type here..." />
-        <button id="chatbotSend" class="chatbot-send">Send</button>
-    </div>
-</div>
-
-<script>
-(function () {
-    const fab = document.getElementById("chatbotFab");
-    const box = document.getElementById("chatbotBox");
-    const body = document.getElementById("chatbotBody");
-    const input = document.getElementById("chatbotInput");
-    const sendBtn = document.getElementById("chatbotSend");
-    const endpoint = "{% url 'hospital_detail_chatbot_message' hospital.id %}";
-
-    function addMessage(text, role) {
-        const row = document.createElement("div");
-        row.className = "chat-row " + role;
-
-        const bubble = document.createElement("div");
-        bubble.className = "chat-bubble";
-        bubble.textContent = text;
-
-        row.appendChild(bubble);
-        body.appendChild(row);
-        body.scrollTop = body.scrollHeight;
-    }
-
-    async function sendMessage(message) {
-        if (message) addMessage(message, "user");
-
-        const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ message: message || "" })
-        });
-
-        const data = await response.json();
-        if (data.ok) {
-            addMessage(data.reply, "bot");
-        } else {
-            addMessage("Something went wrong.", "bot");
-        }
-    }
-
-    fab.addEventListener("click", function () {
-        const isOpen = box.style.display === "flex";
-        box.style.display = isOpen ? "none" : "flex";
-
-        if (!isOpen && body.childElementCount === 0) {
-            sendMessage("");
-        }
-    });
-
-    sendBtn.addEventListener("click", function () {
-        const msg = input.value.trim();
-        if (!msg) return;
-        input.value = "";
-        sendMessage(msg);
-    });
-
-    input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            sendBtn.click();
-        }
-    });
-})();
 </script>
 
 {% endblock %}

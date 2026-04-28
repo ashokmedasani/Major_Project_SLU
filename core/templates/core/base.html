@@ -5,33 +5,196 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CareFinder</title>
+
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem("carefinderTheme");
+            if (savedTheme === "dark") {
+                document.documentElement.classList.add("dark-mode");
+            }
+        })();
+    </script>
+
+    <link rel="icon" type="image/x-icon" href="{% static 'core/images/logo_url.ico' %}">
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'core/images/logo_url.ico' %}">
     <link rel="stylesheet" href="{% static 'core/css/styles.css' %}">
+
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f5f8fc;
-            color: #1f2d3d;
+        :root {
+            --body-bg: linear-gradient(180deg, #f6fbff 0%, #eef5ff 100%);
+            --card-bg: #ffffff;
+            --card-soft-bg: #f8fbff;
+            --navbar-bg: rgba(220, 238, 255, 0.96);
+            --navbar-border: #c7e0ff;
+            --text-main: #14233b;
+            --text-muted: #5f728c;
+            --brand-color: #1d4f91;
+            --brand-hover: #0f3e7a;
+            --primary: #2d7ef7;
+            --primary-dark: #1d4ed8;
+            --border-color: #dceaff;
+            --input-bg: #ffffff;
+            --input-border: #bfd7ff;
+            --danger-bg: #ffdddd;
+            --danger-text: #9b2020;
+            --shadow-main: 0 12px 28px rgba(39, 90, 160, 0.10);
         }
 
-        .navbar {
-            background: #dcebff;
-            border-bottom: 1px solid #c7dbfb;
+        html.dark-mode {
+            --body-bg:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 34%),
+                radial-gradient(circle at top right, rgba(168, 85, 247, 0.20), transparent 32%),
+                linear-gradient(180deg, #06111f 0%, #0b1c31 52%, #111827 100%);
+            --card-bg: rgba(17, 34, 57, 0.96);
+            --card-soft-bg: rgba(24, 47, 74, 0.98);
+            --navbar-bg: rgba(8, 22, 40, 0.96);
+            --navbar-border: #315a84;
+            --text-main: #eaf2ff;
+            --text-muted: #a9bdd8;
+            --brand-color: #6ed3ff;
+            --brand-hover: #9ee7ff;
+            --primary: #38bdf8;
+            --primary-dark: #0ea5e9;
+            --border-color: #29486b;
+            --input-bg: #10233a;
+            --input-border: #315a84;
+            --danger-bg: #431923;
+            --danger-text: #ff8fa3;
+            --shadow-main: 0 18px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        html,
+        body {
+            margin: 0 !important;
+            min-height: 100% !important;
+            font-family: Arial, sans-serif !important;
+            background: var(--body-bg) !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.dark-mode {
+            background: var(--body-bg) !important;
+            color: var(--text-main) !important;
+        }
+
+        .cf-navbar {
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--navbar-bg) !important;
+            border-bottom: 1px solid var(--navbar-border) !important;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 28px;
+            padding: 12px 28px;
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            backdrop-filter: blur(14px);
         }
 
-        .nav-brand {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1d4f91;
+        .cf-nav-left {
             display: flex;
             align-items: center;
+            gap: 14px;
         }
 
-        /* Initial hidden parts */
+        .cf-site-logo {
+            width: 50px !important;
+            height: 50px !important;
+            max-width: 50px !important;
+            max-height: 50px !important;
+            object-fit: contain !important;
+            display: block !important;
+            border-radius: 12px;
+        }
+
+        .cf-brand {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            line-height: 1;
+        }
+
+        .cf-nav-links {
+            display: flex;
+            align-items: center;
+            gap: 22px;
+        }
+
+        .cf-nav-links a {
+            color: var(--text-main) !important;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .cf-nav-links a:hover {
+            color: var(--brand-hover) !important;
+        }
+
+        .cf-theme-toggle {
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-main);
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .cf-container {
+            width: 100%;
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 28px 24px 40px;
+            box-sizing: border-box;
+            background: transparent !important;
+        }
+
+        .card,
+        .home-card,
+        .kpi-card,
+        .kpi-card-home,
+        .chart-card-home,
+        .chart-box,
+        .chart-full,
+        .section-card,
+        .hero-card,
+        .glass-card,
+        .metric-card,
+        .section-shell,
+        .map-card,
+        .compare-banner,
+        .selected-strip,
+        .filter-shell,
+        .prototype-note {
+            background: var(--card-bg) !important;
+            color: var(--text-main) !important;
+            border-color: var(--border-color) !important;
+            box-shadow: var(--shadow-main) !important;
+        }
+
+        input,
+        select,
+        textarea {
+            background: var(--input-bg) !important;
+            color: var(--text-main) !important;
+            border-color: var(--input-border) !important;
+        }
+
+        .alert {
+            background: var(--card-soft-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
         #expandCare,
         #expandFinder {
             opacity: 0;
@@ -41,109 +204,136 @@
             transition: all 1.2s ease;
         }
 
-        /* Animate expansion */
         .show-text {
             opacity: 1 !important;
             max-width: 200px !important;
         }
 
-        /* Optional smooth spacing */
-        .nav-brand span {
-            display: inline-block;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 24px;
-            align-items: center;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: #1d4f91;
-            font-size: 15px;
-            font-weight: 600;
-            transition: 0.2s ease;
-        }
-
-        .nav-links a:hover {
-            color: #0f3e7a;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1320px;
-            margin: 0 auto;
-            padding: 28px 24px 40px;
-            box-sizing: border-box;
-        }
-
-        .alert {
-            background: #fff4e5;
-            color: #9a6700;
-            border: 1px solid #ffd8a8;
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 16px;
-        }
-
         @media (max-width: 768px) {
-            .navbar {
+            .cf-navbar {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 12px;
-                padding: 16px 18px;
+                padding: 14px 18px;
             }
 
-            .nav-links {
-                gap: 16px;
+            .cf-nav-links {
                 flex-wrap: wrap;
             }
 
-            .nav-brand {
-                font-size: 24px;
-            }
-
-            .container {
+            .cf-container {
                 padding: 20px 14px 32px;
             }
         }
     </style>
 </head>
+
 <body>
-    <nav class="navbar">
-        <div class="nav-brand" id="brandLogo">
-            <span id="letterC">C</span><span id="expandCare">are</span>
-            <span id="letterF">F</span><span id="expandFinder">inder</span>
+
+    <nav class="cf-navbar">
+        <div class="cf-nav-left">
+            <img src="{% static 'core/images/logo.png' %}" alt="CareFinder Logo" class="cf-site-logo">
+
+            <div class="cf-brand" id="brandLogo">
+                <span id="letterC">C</span><span id="expandCare">are</span>
+                <span id="letterF">F</span><span id="expandFinder">inder</span>
+            </div>
         </div>
-        <div class="nav-links">
+
+        <div class="cf-nav-links">
             <a href="{% url 'home' %}">Home</a>
             <a href="mailto:ashok.medasani@slu.edu">Contact Us</a>
+            <button class="cf-theme-toggle" id="themeToggle" type="button">🌙 Dark</button>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="cf-container">
         {% if messages %}
             {% for message in messages %}
                 <div class="alert">{{ message }}</div>
             {% endfor %}
         {% endif %}
+
         {% block content %}{% endblock %}
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            const html = document.documentElement;
+            const body = document.body;
+            const toggleBtn = document.getElementById("themeToggle");
+
+            function applyTheme(theme) {
+                if (theme === "dark") {
+                    html.classList.add("dark-mode");
+                    body.classList.add("dark-mode");
+                    toggleBtn.textContent = "☀️ Light";
+                    localStorage.setItem("carefinderTheme", "dark");
+                } else {
+                    html.classList.remove("dark-mode");
+                    body.classList.remove("dark-mode");
+                    toggleBtn.textContent = "🌙 Dark";
+                    localStorage.setItem("carefinderTheme", "light");
+                }
+
+                window.dispatchEvent(new Event("carefinder-theme-change"));
+            }
+
+            const savedTheme = localStorage.getItem("carefinderTheme") || "light";
+            applyTheme(savedTheme);
+
+            toggleBtn.addEventListener("click", function () {
+                const nextTheme = html.classList.contains("dark-mode") ? "light" : "dark";
+                applyTheme(nextTheme);
+            });
+
             setTimeout(() => {
-                // First expand "Care"
-                document.getElementById("expandCare").classList.add("show-text");
-        
-                // Then expand "Finder" with slight delay
+                const care = document.getElementById("expandCare");
+                const finder = document.getElementById("expandFinder");
+
+                if (care) care.classList.add("show-text");
+
                 setTimeout(() => {
-                    document.getElementById("expandFinder").classList.add("show-text");
-                }, 200);   // small delay (adjust 150–300 if needed)
-        
-            }, 1000);
+                    if (finder) finder.classList.add("show-text");
+                }, 200);
+            }, 700);
         });
-        </script>
+    </script>
+<link rel="stylesheet" href="{% static 'core/css/chatbot.css' %}">
+
+<script>
+    window.CAREFINDER_CHATBOT_CONFIG = {
+        page: "{{ page_name|default:'home' }}",
+        askUrl: "{% url 'chatbot_ask' %}"
+    };
+</script>
+
+<button id="carebotBtn" class="carebot-btn">💬</button>
+
+<div id="carebotBox" class="carebot-box">
+    <div class="carebot-header">
+        <h3>CareFinder Assistant</h3>
+        <button id="carebotClose" class="carebot-close">&times;</button>
+    </div>
+
+    <div id="carebotMessages" class="carebot-messages"></div>
+
+    <div class="carebot-faqs">
+        <button class="carebot-faq-btn" data-question="What is CareFinder?">What is CareFinder?</button>
+        <button class="carebot-faq-btn" data-question="How to start?">How to start?</button>
+        <button class="carebot-faq-btn" data-question="What is Recommendations page?">Recommendations</button>
+        <button class="carebot-faq-btn" data-question="What is Compare page?">Compare</button>
+        <button class="carebot-faq-btn" data-question="What is Hospital Detail page?">Hospital Detail</button>
+        <button class="carebot-faq-btn" data-question="What data source is used?">Data Source</button>
+        <button class="carebot-faq-btn" data-question="How prediction works?">Predictions</button>
+    </div>
+
+    <div class="carebot-input-area">
+        <input id="carebotInput" type="text" placeholder="Ask about CareFinder...">
+        <button id="carebotSend">Send</button>
+    </div>
+</div>
+
+<script src="{% static 'core/js/chatbot.js' %}"></script>
 </body>
 </html>
