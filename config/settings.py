@@ -1,22 +1,20 @@
 from pathlib import Path
 import os
 import dj_database_url
-from dotenv import load_dotenv
+
 
 # ========================
 # BASE SETUP
 # ========================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load .env file
-load_dotenv(BASE_DIR / ".env")
 
 # ========================
 # SECURITY
 # ========================
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
-    "django-insecure-wz*na#7y5+fywbobsk%2xeq2pp7y78c!+ki^3uvf3$$hs79!ts"
+    "django-insecure-change-this-in-production"
 )
 
 DEBUG = os.getenv("DEBUG", "False") == "True"
@@ -24,18 +22,19 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "192.168.1.156",
     ".ngrok-free.dev",
+    ".onrender.com",   # 🔥 IMPORTANT FOR RENDER
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.dev",
+    "https://*.onrender.com",  # 🔥 IMPORTANT
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # ========================
-# 🔥 AUTH FIX (IMPORTANT)
+# AUTH
 # ========================
 LOGIN_URL = '/developer/login/'
 LOGIN_REDIRECT_URL = '/developer/'
@@ -51,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'core',
 ]
 
@@ -59,7 +59,7 @@ INSTALLED_APPS = [
 # ========================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # 🔥 REQUIRED
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -130,7 +130,7 @@ USE_I18N = True
 USE_TZ = True
 
 # ========================
-# STATIC FILES
+# STATIC FILES (CRITICAL)
 # ========================
 STATIC_URL = '/static/'
 
