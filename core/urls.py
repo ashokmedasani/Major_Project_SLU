@@ -8,6 +8,8 @@ urlpatterns = [
     path("hospital/<int:hospital_id>/", views.hospital_detail_view, name="hospital_detail"),
     path("compare/", views.compare_view, name="compare_hospitals"),
 
+    path("pkl_result/", views.pkl_result_view, name="pkl_result"),
+
     # developer auth
     path("developer/login/", views.developer_login, name="developer_login"),
     path("developer/request-access/", views.developer_request_access, name="developer_request_access"),
@@ -30,10 +32,5 @@ urlpatterns = [
     path("developer/predictions/", views.prediction_dashboard, name="prediction_dashboard"),
     path("developer/predictions/train/", views.train_all_models, name="train_models"),
 
-    path("assistant/chat/", views.chatbot_message_view, name="chatbot_message"),
-    path(
-        "assistant/chat/hospital/<int:hospital_id>/",
-        views.hospital_detail_chatbot_message_view,
-        name="hospital_detail_chatbot_message",
-    ),
+    path("chatbot/ask/", views.chatbot_ask, name="chatbot_ask"),
 ]

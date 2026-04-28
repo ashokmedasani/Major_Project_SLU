@@ -1,0 +1,175 @@
+.carebot-btn {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: #2563eb;
+    color: white;
+    font-size: 26px;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.carebot-box {
+    position: fixed;
+    right: 22px;
+    bottom: 92px;
+    width: 360px;
+    max-width: calc(100vw - 35px);
+    height: 520px;
+    background: var(--card-bg, #ffffff);
+    color: var(--text-color, #1f2937);
+    border-radius: 18px;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.25);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 9999;
+    border: 1px solid rgba(120,120,120,0.25);
+}
+
+.carebot-box.open {
+    display: flex;
+}
+
+.carebot-header {
+    background: #2563eb;
+    color: white;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.carebot-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.carebot-close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.carebot-messages {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    background: var(--body-bg, #f5f7fb);
+}
+
+.carebot-msg {
+    max-width: 82%;
+    padding: 10px 13px;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+.carebot-msg.bot {
+    background: var(--card-bg, #ffffff);
+    color: var(--text-color, #1f2937);
+    border: 1px solid rgba(120,120,120,0.18);
+    border-bottom-left-radius: 4px;
+}
+
+.carebot-msg.user {
+    margin-left: auto;
+    background: #2563eb;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.carebot-faqs {
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-top: 1px solid rgba(120,120,120,0.2);
+    background: var(--card-bg, #ffffff);
+}
+
+.carebot-faq-btn {
+    border: 1px solid #2563eb;
+    background: transparent;
+    color: #2563eb;
+    padding: 7px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.carebot-faq-btn:hover {
+    background: #2563eb;
+    color: white;
+}
+
+.carebot-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: var(--card-bg, #ffffff);
+    border-top: 1px solid rgba(120,120,120,0.2);
+}
+
+.carebot-input-area input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(120,120,120,0.35);
+    outline: none;
+    background: var(--input-bg, #ffffff);
+    color: var(--text-color, #1f2937);
+}
+
+.carebot-input-area button {
+    border: none;
+    background: #2563eb;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+/* Dark mode support */
+body.dark-mode .carebot-box,
+body.dark .carebot-box,
+[data-theme="dark"] .carebot-box {
+    background: #111827;
+    color: #f9fafb;
+}
+
+body.dark-mode .carebot-messages,
+body.dark .carebot-messages,
+[data-theme="dark"] .carebot-messages {
+    background: #0f172a;
+}
+
+body.dark-mode .carebot-msg.bot,
+body.dark .carebot-msg.bot,
+[data-theme="dark"] .carebot-msg.bot,
+body.dark-mode .carebot-faqs,
+body.dark .carebot-faqs,
+[data-theme="dark"] .carebot-faqs,
+body.dark-mode .carebot-input-area,
+body.dark .carebot-input-area,
+[data-theme="dark"] .carebot-input-area {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+body.dark-mode .carebot-input-area input,
+body.dark .carebot-input-area input,
+[data-theme="dark"] .carebot-input-area input {
+    background: #111827;
+    color: #f9fafb;
+}

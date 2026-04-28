@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from django.conf import settings
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 try:
     from xgboost import XGBRegressor
@@ -24,6 +25,9 @@ class ForecastResult:
     partial_month_start: Optional[pd.Timestamp]
     model_used: str
     metric_used: str
+    evaluation: dict
+    fitted_model: object
+    feature_columns: list
 
 
 class TimeSeriesForecaster:
@@ -34,12 +38,14 @@ class TimeSeriesForecaster:
         months_ahead=18,
         model_name="random_forest",
         ignore_recent_months=1,
+        test_size=0.2,
     ):
         self.encounters_qs = encounters_qs
         self.years_back = years_back
         self.months_ahead = months_ahead
         self.model_name = (model_name or "random_forest").lower().strip()
         self.ignore_recent_months = max(1, int(ignore_recent_months))
+        self.test_size = float(test_size)
 
     def _get_model(self):
         if self.model_name == "xgboost" and XGBOOST_AVAILABLE:
@@ -156,6 +162,16 @@ class TimeSeriesForecaster:
             "roll_mean_3", "roll_mean_6",
         ]
 
+    def _evaluate_predictions(self, y_true, y_pred):
+        if len(y_true) == 0:
+            return {"r2": None, "rmse": None, "mae": None}
+
+        return {
+            "r2": float(r2_score(y_true, y_pred)) if len(y_true) > 1 else None,
+            "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
+            "mae": float(mean_absolute_error(y_true, y_pred)),
+        }
+
     def _recursive_forecast(self, monthly_train, model, feature_cols, forecast_start_month):
         hist = monthly_train[["month_start", "value"]].copy().sort_values("month_start").reset_index(drop=True)
         future_rows = []
@@ -205,6 +221,9 @@ class TimeSeriesForecaster:
                 partial_month_start=None,
                 model_used=self.model_name,
                 metric_used=metric,
+                evaluation={},
+                fitted_model=None,
+                feature_columns=[],
             )
 
         feature_df = self._create_features(monthly_train)
@@ -215,21 +234,85 @@ class TimeSeriesForecaster:
                 partial_month_start=partial_month_start,
                 model_used=self.model_name,
                 metric_used=metric,
+                evaluation={},
+                fitted_model=None,
+                feature_columns=[],
             )
 
         feature_cols = self._feature_cols()
-        X = feature_df[feature_cols]
-        y = feature_df["value"]
-        model, pretty_name = self._get_model()
-        model.fit(X, y)
+        X = feature_df[feature_cols].copy()
+        y = feature_df["value"].copy()
+        month_labels = feature_df["month_start"].copy()
 
-        future = self._recursive_forecast(monthly_train, model, feature_cols, partial_month_start)
+        n_rows = len(feature_df)
+        test_count = max(1, int(round(n_rows * self.test_size)))
+        if n_rows <= 6:
+            test_count = 1
+        if test_count >= n_rows:
+            test_count = 1
+
+        split_index = n_rows - test_count
+
+        X_train = X.iloc[:split_index].copy()
+        y_train = y.iloc[:split_index].copy()
+        X_test = X.iloc[split_index:].copy()
+        y_test = y.iloc[split_index:].copy()
+
+        months_train = month_labels.iloc[:split_index].copy()
+        months_test = month_labels.iloc[split_index:].copy()
+
+        model, pretty_name = self._get_model()
+        model.fit(X_train, y_train)
+
+        train_pred = model.predict(X_train)
+        test_pred = model.predict(X_test)
+
+        train_metrics = self._evaluate_predictions(y_train, train_pred)
+        test_metrics = self._evaluate_predictions(y_test, test_pred)
+
+        full_model, _ = self._get_model()
+        full_model.fit(X, y)
+
+        future = self._recursive_forecast(monthly_train, full_model, feature_cols, partial_month_start)
+
+        evaluation = {
+            "train_metrics": train_metrics,
+            "test_metrics": test_metrics,
+            "train_actual_vs_pred": [
+                {
+                    "month_start": pd.Timestamp(m).strftime("%Y-%m-%d"),
+                    "actual": float(a),
+                    "predicted": float(p),
+                    "residual": float(a - p),
+                }
+                for m, a, p in zip(months_train, y_train, train_pred)
+            ],
+            "test_actual_vs_pred": [
+                {
+                    "month_start": pd.Timestamp(m).strftime("%Y-%m-%d"),
+                    "actual": float(a),
+                    "predicted": float(p),
+                    "residual": float(a - p),
+                }
+                for m, a, p in zip(months_test, y_test, test_pred)
+            ],
+            "dataset_summary": {
+                "total_feature_rows": int(n_rows),
+                "train_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "forecast_start_month": pd.Timestamp(partial_month_start).strftime("%Y-%m-%d"),
+            },
+        }
+
         return ForecastResult(
             train_monthly=monthly_train,
             future_monthly=future,
             partial_month_start=partial_month_start,
             model_used=pretty_name,
             metric_used=metric,
+            evaluation=evaluation,
+            fitted_model=full_model,
+            feature_columns=feature_cols,
         )
 
 

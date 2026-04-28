@@ -1,40 +1,49 @@
 from pathlib import Path
 import os
 import dj_database_url
+from dotenv import load_dotenv
 
+# ========================
+# BASE SETUP
+# ========================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ==============================
+# Load .env file
+load_dotenv(BASE_DIR / ".env")
+
+# ========================
 # SECURITY
-# ==============================
-SECRET_KEY = os.environ.get(
+# ========================
+SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "django-insecure-wz*na#7y5+fywbobsk%2xeq2pp7y78c!+ki^3uvf3$$hs79!ts"
 )
 
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "192.168.1.156",
-    ".onrender.com",
+    ".ngrok-free.dev",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.onrender.com",
+    "https://*.ngrok-free.dev",
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-if os.environ.get("RENDER") == "true":
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+# ========================
+# 🔥 AUTH FIX (IMPORTANT)
+# ========================
+LOGIN_URL = '/developer/login/'
+LOGIN_REDIRECT_URL = '/developer/'
+LOGOUT_REDIRECT_URL = '/developer/login/'
 
-# ==============================
-# APPLICATIONS
-# ==============================
+# ========================
+# APPS
+# ========================
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -45,9 +54,9 @@ INSTALLED_APPS = [
     'core',
 ]
 
-# ==============================
+# ========================
 # MIDDLEWARE
-# ==============================
+# ========================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -59,11 +68,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# ========================
+# URLS & TEMPLATES
+# ========================
 ROOT_URLCONF = 'config.urls'
 
-# ==============================
-# TEMPLATES
-# ==============================
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -81,57 +90,64 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# ==============================
+# ========================
 # DATABASE
-# ==============================
-DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+# ========================
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ==============================
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# ========================
 # PASSWORD VALIDATION
-# ==============================
+# ========================
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# ==============================
+# ========================
 # INTERNATIONALIZATION
-# ==============================
+# ========================
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Chicago'
 USE_I18N = True
 USE_TZ = True
 
-# ==============================
-# STATIC / MEDIA
-# ==============================
+# ========================
+# STATIC FILES
+# ========================
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static"
+] if (BASE_DIR / "static").exists() else []
+
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# ========================
+# MEDIA FILES
+# ========================
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ==============================
-# PROJECT DIRECTORIES
-# ==============================
 UPLOADS_DIR = MEDIA_ROOT / "uploads"
 EXPORTS_DIR = MEDIA_ROOT / "exports"
 LOGS_DIR = MEDIA_ROOT / "logs"
@@ -139,4 +155,7 @@ LOGS_DIR = MEDIA_ROOT / "logs"
 for folder in [MEDIA_ROOT, UPLOADS_DIR, EXPORTS_DIR, LOGS_DIR]:
     folder.mkdir(parents=True, exist_ok=True)
 
+# ========================
+# DEFAULT FIELD
+# ========================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
