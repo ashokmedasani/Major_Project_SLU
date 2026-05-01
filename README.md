@@ -1,154 +1,138 @@
-🚀 CareFinder
+# CareFinder
 
-Find the Best Diabetes Hospital Near You
+## Find the Best Diabetes Hospital Near You
 
-📌 Overview
+CareFinder is a data-driven healthcare analytics web application designed to help users identify suitable hospitals for Type 2 Diabetes care using synthetic healthcare data, cost analysis, insurance coverage insights, hospital visit trends, and machine learning-based future predictions.
 
-CareFinder is a data-driven healthcare analytics web application designed to help users identify the best hospitals for Type 2 Diabetes care. The platform provides insights into hospital performance based on cost, insurance coverage, and patient visit trends, along with future predictions using machine learning models.
+## Overview
 
-🎯 Problem Statement
+Choosing the right hospital for diabetes care can be difficult because patients often do not have clear information about hospital costs, insurance coverage, out-of-pocket expenses, and hospital usage patterns.
 
-Choosing the right hospital for diabetes care is complex due to:
+CareFinder solves this problem by providing a prototype decision-support platform where users can filter hospitals, compare options, view analytics, and understand future trends using predictive models.
 
-Lack of transparent cost information
-Variations in insurance coverage
-No centralized system for comparison
 
-CareFinder addresses this by providing a data-backed decision support system.
+## Problem Statement
 
-💡 Solution
+Patients and healthcare decision-makers face challenges such as:
+
+- Lack of transparent hospital cost information
+- Differences in insurance coverage across providers
+- Difficulty comparing hospitals side-by-side
+- No centralized system for diabetes hospital recommendations
+- Limited visibility into future hospital cost and visit trends
+
+CareFinder addresses these issues through a data-backed recommendation and analytics system.
+
+## Solution
 
 CareFinder allows users to:
 
-Filter hospitals by state and city
-View top recommended hospitals
-Compare multiple hospitals side-by-side
-Analyze cost, coverage, and out-of-pocket expenses
-View historical trends and future predictions
-🧠 Key Features
-🏠 Home Page
-Overview dashboard with:
-Total hospitals, patients, visits
-Average cost & coverage
-Interactive charts:
-Gender distribution
-Age group distribution
-Insurance payer insights
-State-wise hospital distribution
-🔍 Recommendations Page
-Displays:
-Top hospitals based on visits
-Top hospitals based on coverage
-Best recommended hospitals (combined score)
-🏥 Hospital Detail Page
-Detailed hospital information
-Cost breakdown:
-Total cost
-Coverage
-Out-of-pocket
-Predictive analytics:
-Monthly & yearly forecasts
-Future cost estimation
-⚖️ Compare Hospitals
-Compare up to 4 hospitals
-Side-by-side comparison:
-Cost
-Coverage
-Visits
-Performance metrics
-📊 Predictive Analytics
-Forecast next 36 months
-Smooth transition between historical & predicted values
-Metrics:
-Visits
-Patients
-Hospitals
-Cost & coverage trends
-🤖 Machine Learning Models
-Random Forest
-XGBoost
-📦 Optimization
-Models are pre-trained and stored as .pkl files
-Eliminates runtime training → improves performance
-🗂️ Data Pipeline
-🔄 Data Source
-Synthetic healthcare data generated using Synthea
-⚙️ Flow
-Generate data using Synthea
-Upload ZIP batch
-Validate CSV files
-Store in Raw Tables
-Sync to Master Tables
-Generate Summary Tables
-Train models → Save .pkl files
-🧱 Database Design
-MasterPatient
-MasterHospital
-MasterEncounter
-🧠 Deduplication Logic
-Based on:
-patient_id
-state
-city
-🛠️ Tech Stack
-👨‍💻 Backend
-Python 3.13
-Django 6.x
-🗄️ Database
-MySQL (Primary)
-PostgreSQL (Render deployment)
-SQLite (Local testing)
-📊 Data Processing
-Pandas
-NumPy
-📈 Machine Learning
-Scikit-learn
-RandomForestRegressor
-XGBoost
-📉 Visualization
-ApexCharts
-Chart.js
-Plotly
-🎨 Frontend
-Django Templates
-HTML5 / CSS3
-JavaScript
-☁️ Deployment / Tools
-Render (Cloud deployment)
-GitHub (Version control)
-ngrok (Public access from local)
-📦 Dataset
-Generated using:
-run_synthea -p 2543 California -m "diabetes" -s 20474 --exporter.csv.export=true --exporter.fhir.export=false
-Includes:
-Patients
-Encounters
-Claims
-Providers
-Insurance data
-⚡ Performance Optimization
-Pre-trained .pkl models used instead of real-time training
-Reduced page load time significantly
-Efficient aggregation using summary tables
-🔐 Note
+- Filter hospitals by state and city
+- View top hospitals based on visits and insurance coverage
+- Compare up to 4 hospitals side-by-side
+- Analyze total cost, insurance coverage, and out-of-pocket expenses
+- View historical hospital trends
+- View future predictions for visits, patients, hospitals, cost, coverage, and out-of-pocket expenses
 
-Data shown in this application is synthetically generated using Synthea and does not represent real patient information.
+## Key Features
 
-🎓 Project Context
-Developed as a Master’s Final Project (MRP)
-Saint Louis University
-Under guidance of Srikanth Mudigonda
-🚀 Future Enhancements
-Multi-disease support
-Real-time hospital data integration
-Advanced recommendation algorithms
-User authentication & personalization
-👨‍💻 Author
+### Home Page
 
-Ashok Medasani
-📍 Saint Louis University
-🔗 LinkedIn: https://www.linkedin.com/in/ashok-medasani/
+The Home page provides an overview dashboard with:
 
-⭐ Final Note
+- Total hospitals
+- Total patients
+- Total visits
+- Average cost
+- Average insurance coverage
+- Gender distribution
+- Age group distribution
+- Insurance payer insights
+- State-wise hospital distribution
 
-CareFinder is designed as a prototype healthcare decision system, demonstrating how data analytics and machine learning can improve hospital selection and cost transparency.
+
+### Recommendations Page
+
+The Recommendations page displays:
+
+- Top hospitals based on patient visits
+- Top hospitals based on insurance coverage
+- Best recommended hospitals using a combined score
+- Filters for state, city, gender, and insurance payer
+
+---
+
+### Hospital Detail Page
+
+The Hospital Detail page provides detailed hospital-level insights such as:
+
+- Hospital summary metrics
+- Total cost
+- Insurance coverage
+- Out-of-pocket expenses
+- Patient visits
+- Historical trends
+- Monthly and yearly forecasts
+- Future cost and coverage predictions
+
+---
+
+### Compare Hospitals
+
+The Compare page allows users to compare up to 4 hospitals side-by-side using:
+
+- Visits
+- Total cost
+- Insurance coverage
+- Out-of-pocket expenses
+- Unique patients
+- Average cost
+- Coverage percentage
+- Balanced recommendation score
+
+---
+
+## Predictive Analytics
+
+CareFinder uses machine learning models to forecast future trends for the next 36 months.
+
+Forecasted metrics include:
+
+- Visits
+- Patients
+- Hospitals
+- Average cost
+- Average coverage
+- Average out-of-pocket expenses
+
+The application uses pre-trained models saved as `.pkl` files to avoid runtime model training and improve page performance.
+
+---
+
+## Machine Learning Models
+
+The project uses:
+
+- Random Forest Regressor
+- XGBoost Regressor
+
+The models are trained using historical monthly hospital summary data and saved as pickle files.
+
+---
+
+## Data Source
+
+CareFinder uses synthetic healthcare data generated using Synthea.
+
+Important note:
+
+The data used in this project is fully synthetic and does not represent real patients, real hospitals, or real clinical records.
+
+---
+
+## Synthea Data Generation
+
+To generate Type 2 Diabetes patient data using Synthea, use the following command:
+
+```bash
+./run_synthea -p 2543 California -m diabetes -s 73921 --exporter.csv.export=true --exporter.fhir.export=false
