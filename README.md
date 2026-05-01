@@ -142,9 +142,9 @@ The data used in this project is fully synthetic and does not represent real pat
 
 To generate Type 2 Diabetes patient data using Synthea, use the following command:
 
-```bash
-./run_synthea -p 2543 California -m diabetes -s 73921 --exporter.csv.export=true --exporter.fhir.export=false
+./run_synthea -p 1000 California -m diabetes -s 73921 --exporter.csv.export=true --exporter.fhir.export=false
 
+---
 
 ## Skills Covered
 
